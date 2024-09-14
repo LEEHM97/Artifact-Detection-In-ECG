@@ -6,22 +6,22 @@
 
 The recommended requirements are specified as follows:
 
-Python 3.8
-Jupyter Notebook
-einops==0.4.0
-matplotlib==3.7.0
-numpy==1.23.5
-pandas==1.5.3
-patool==1.12
-reformer-pytorch==1.4.4
-scikit-learn==1.2.2
-scipy==1.10.1
-sktime==0.16.1
-sympy==1.11.1
-tqdm==4.64.1
-wfdb==4.1.2
-neurokit2==0.2.9
-mne==1.6.1
+- Python 3.8
+- Jupyter Notebook
+- einops==0.4.0
+- matplotlib==3.7.0
+- numpy==1.23.5
+- pandas==1.5.3
+- patool==1.12
+- reformer-pytorch==1.4.4
+- scikit-learn==1.2.2
+- scipy==1.10.1
+- sktime==0.16.1
+- sympy==1.11.1
+- tqdm==4.64.1
+- wfdb==4.1.2
+- neurokit2==0.2.9
+- mne==1.6.1
 
 The dependencies can be installed by:
 
