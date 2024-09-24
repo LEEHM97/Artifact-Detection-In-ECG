@@ -46,7 +46,7 @@ CONFIG = {
     'itr': 1,
     'train_epochs': 100,
     'batch_size': 8,
-    'patience': 20,
+    'patience': 10,
     'learning_rate': 1e-4,
     'des': 'Exp',
     'loss': 'MSE',
