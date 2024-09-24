@@ -1,6 +1,6 @@
 from data_factory import data_provider
 from exp_basic import Exp_Basic
-from utils import EarlyStopping
+from utils import EarlyStopping, mcc_score
 import torch
 import torch.nn as nn
 from torch import optim
@@ -10,6 +10,7 @@ import warnings
 import numpy as np
 import random
 
+from tqdm import tqdm
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
@@ -39,7 +40,7 @@ class Exp_Classification(Exp_Basic):
         self.args['num_class'] = len(np.unique(test_data.y))
         # model init
         model = (
-            self.model_dict[self.args.model].Model(self.args).float()
+            self.model_dict[self.args['model']].Model(self.args).float()
         )  # pass args to model
         if self.args['use_multi_gpu'] and self.args['use_gpu']:
             model = nn.DataParallel(model, device_ids=self.args['device_ids'])
@@ -109,13 +110,20 @@ class Exp_Classification(Exp_Basic):
         probs = probs.cpu().numpy()
         trues = trues.flatten().cpu().numpy()
         # accuracy = cal_accuracy(predictions, trues)
+
+        f1 = f1_score(trues, predictions, average="macro")
+        auroc = roc_auc_score(trues_onehot, probs, multi_class="ovr")
+        mcc = mcc_score(trues, predictions)
+
         metrics_dict = {
             "Accuracy": accuracy_score(trues, predictions),
             "Precision": precision_score(trues, predictions, average="macro"),
             "Recall": recall_score(trues, predictions, average="macro"),
-            "F1": f1_score(trues, predictions, average="macro"),
-            "AUROC": roc_auc_score(trues_onehot, probs, multi_class="ovr"),
+            "F1": f1,
+            "AUROC": auroc,
             "AUPRC": average_precision_score(trues_onehot, probs, average="macro"),
+            "MCC": mcc,
+            "CPI": (0.25 * f1) + (0.25 * auroc) + (0.5 * mcc)
         }
 
         if self.swa:
@@ -209,20 +217,24 @@ class Exp_Classification(Exp_Basic):
 
             print(
                 f"Epoch: {epoch + 1}, Steps: {train_steps}, | Train Loss: {train_loss:.5f}\n"
-                f"Validation results --- Loss: {vali_loss:.5f}, "
+                f"Valid results --- Loss: {vali_loss:.5f}, "
                 f"Accuracy: {val_metrics_dict['Accuracy']:.5f}, "
                 f"Precision: {val_metrics_dict['Precision']:.5f}, "
                 f"Recall: {val_metrics_dict['Recall']:.5f}, "
+                f"AUPRC: {val_metrics_dict['AUPRC']:.5f}, "
                 f"F1: {val_metrics_dict['F1']:.5f}, "
                 f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
-                f"AUPRC: {val_metrics_dict['AUPRC']:.5f}\n"
+                f"MCC: {val_metrics_dict['MCC']:.5f}, "
+                f"CPI: {val_metrics_dict['CPI']:.5f}\n"
                 f"Test results --- Loss: {test_loss:.5f}, "
                 f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
                 f"Precision: {test_metrics_dict['Precision']:.5f}, "
                 f"Recall: {test_metrics_dict['Recall']:.5f} "
+                f"AUPRC: {test_metrics_dict['AUPRC']:.5f}, "
                 f"F1: {test_metrics_dict['F1']:.5f}, "
                 f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-                f"AUPRC: {test_metrics_dict['AUPRC']:.5f}\n"
+                f"MCC: {test_metrics_dict['MCC']:.5f}, "
+                f"CPI: {test_metrics_dict['CPI']:.5f}\n"
             )
             early_stopping(
                 -val_metrics_dict["F1"],
@@ -285,39 +297,47 @@ class Exp_Classification(Exp_Basic):
             os.makedirs(folder_path)
 
         print(
-            f"Validation results --- Loss: {vali_loss:.5f}, "
+            f"Valid results --- Loss: {vali_loss:.5f}, "
             f"Accuracy: {val_metrics_dict['Accuracy']:.5f}, "
             f"Precision: {val_metrics_dict['Precision']:.5f}, "
             f"Recall: {val_metrics_dict['Recall']:.5f}, "
+            f"AUPRC: {val_metrics_dict['AUPRC']:.5f}, "
             f"F1: {val_metrics_dict['F1']:.5f}, "
             f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
-            f"AUPRC: {val_metrics_dict['AUPRC']:.5f}\n"
+            f"MCC: {val_metrics_dict['MCC']:.5f}, "
+            f"CPI: {val_metrics_dict['CPI']:.5f}\n"
             f"Test results --- Loss: {test_loss:.5f}, "
             f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
             f"Precision: {test_metrics_dict['Precision']:.5f}, "
             f"Recall: {test_metrics_dict['Recall']:.5f}, "
+            f"AUPRC: {test_metrics_dict['AUPRC']:.5f} ,"
             f"F1: {test_metrics_dict['F1']:.5f}, "
             f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-            f"AUPRC: {test_metrics_dict['AUPRC']:.5f}\n"
+            f"MCC: {test_metrics_dict['MCC']:.5f}, "
+            f"CPI: {test_metrics_dict['CPI']:.5f}\n"
         )
         file_name = "result_classification.txt"
         f = open(os.path.join(folder_path, file_name), "a")
         f.write(setting + "  \n")
         f.write(
-            f"Validation results --- Loss: {vali_loss:.5f}, "
+            f"Valid results --- Loss: {vali_loss:.5f}, "
             f"Accuracy: {val_metrics_dict['Accuracy']:.5f}, "
             f"Precision: {val_metrics_dict['Precision']:.5f}, "
             f"Recall: {val_metrics_dict['Recall']:.5f}, "
+            f"AUPRC: {val_metrics_dict['AUPRC']:.5f}, "
             f"F1: {val_metrics_dict['F1']:.5f}, "
             f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
-            f"AUPRC: {val_metrics_dict['AUPRC']:.5f}\n"
+            f"MCC: {val_metrics_dict['MCC']:.5f}, "
+            f"CPI: {val_metrics_dict['CPI']:.5f}\n"
             f"Test results --- Loss: {test_loss:.5f}, "
             f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
             f"Precision: {test_metrics_dict['Precision']:.5f}, "
             f"Recall: {test_metrics_dict['Recall']:.5f}, "
+            f"AUPRC: {test_metrics_dict['AUPRC']:.5f} ,"
             f"F1: {test_metrics_dict['F1']:.5f}, "
             f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-            f"AUPRC: {test_metrics_dict['AUPRC']:.5f}\n"
+            f"MCC: {test_metrics_dict['MCC']:.5f}, "
+            f"CPI: {test_metrics_dict['CPI']:.5f}\n"
         )
         f.write("\n")
         f.write("\n")

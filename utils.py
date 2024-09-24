@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import math
-
 plt.switch_backend("agg")
 
 
@@ -119,3 +118,26 @@ def cal_accuracy(y_pred, y_true):
     return np.mean(y_pred == y_true)
 
 
+def mcc_score(y_true, y_pred):
+    # -1과 1사이의 값을 가지며, 1에 가까울수록 비슷
+    tp = ((y_true == 1) & (y_pred == 1)).sum().item()
+    tn = ((y_true == 0) & (y_pred == 0)).sum().item()
+    fp = ((y_true == 0) & (y_pred == 1)).sum().item()
+    fn = ((y_true == 1) & (y_pred == 0)).sum().item()
+    
+    numerator = (tp * tn) - (fp * fn)
+    denominator = ((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)) ** 0.5
+    
+    if denominator == 0:
+        return 0.0
+    
+    return numerator / denominator
+
+def calculate_cpi(y_true, y_pred, f1, auroc):    
+    # MCC 계산
+    mcc_value = mcc_score(y_true, y_pred)
+    
+    # CPI 계산
+    cpi = 0.25 * f1 + 0.25 * auroc + 0.5 * mcc_value
+    
+    return cpi

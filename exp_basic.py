@@ -1,6 +1,6 @@
 import os
 import torch
-# from models import Medformer
+import Medformer
 
 
 class Exp_Basic(object):
@@ -17,7 +17,7 @@ class Exp_Basic(object):
             # "PatchTST": PatchTST,
             # "Reformer": Reformer,
             # "Transformer": Transformer,
-            # "Medformer": Medformer,
+            "Medformer": Medformer,
         }
         self.device = self._acquire_device()
         self.model = self._build_model().to(self.device)
@@ -27,12 +27,12 @@ class Exp_Basic(object):
         return None
 
     def _acquire_device(self):
-        if self.args.use_gpu:
+        if self.args['use_gpu']:
             os.environ["CUDA_VISIBLE_DEVICES"] = (
-                str(self.args.gpu) if not self.args.use_multi_gpu else self.args.devices
+                str(self.args['gpu']) if not self.args['use_multi_gpu'] else self.args['devices']
             )
-            device = torch.device("cuda:{}".format(self.args.gpu))
-            print("Use GPU: cuda:{}".format(self.args.gpu))
+            device = torch.device("cuda:{}".format(self.args['gpu']))
+            print("Use GPU: cuda:{}".format(self.args['gpu']))
         else:
             device = torch.device("cpu")
             print("Use CPU")

@@ -16,29 +16,29 @@ class Model(nn.Module):
 
     def __init__(self, configs):
         super(Model, self).__init__()
-        self.task_name = configs.task_name
-        self.pred_len = configs.pred_len
-        self.output_attention = configs.output_attention
-        self.enc_in = configs.enc_in
-        self.single_channel = configs.single_channel
+        self.task_name = configs['task_name']
+        self.pred_len = configs['pred_len']
+        self.output_attention = configs['output_attention']
+        self.enc_in = configs['enc_in']
+        self.single_channel = configs['single_channel']
         # Embedding
-        patch_len_list = list(map(int, configs.patch_len_list.split(",")))
+        patch_len_list = list(map(int, configs['patch_len_list'].split(",")))
         stride_list = patch_len_list
-        seq_len = configs.seq_len
+        seq_len = configs['seq_len']
         patch_num_list = [
             int((seq_len - patch_len) / stride + 2)
             for patch_len, stride in zip(patch_len_list, stride_list)
         ]
-        augmentations = configs.augmentations.split(",")
+        augmentations = configs['augmentations'].split(",")
 
         self.enc_embedding = ListPatchEmbedding(
-            configs.enc_in,
-            configs.d_model,
+            configs['enc_in'],
+            configs['d_model'],
             patch_len_list,
             stride_list,
-            configs.dropout,
+            configs['dropout'],
             augmentations,
-            configs.single_channel,
+            configs['single_channel'],
         )
         # Encoder
         self.encoder = Encoder(
@@ -46,30 +46,30 @@ class Model(nn.Module):
                 EncoderLayer(
                     MedformerLayer(
                         len(patch_len_list),
-                        configs.d_model,
-                        configs.n_heads,
-                        configs.dropout,
-                        configs.output_attention,
-                        configs.no_inter_attn,
+                        configs['d_model'],
+                        configs['n_heads'],
+                        configs['dropout'],
+                        configs['output_attention'],
+                        configs['no_inter_attn'],
                     ),
-                    configs.d_model,
-                    configs.d_ff,
-                    dropout=configs.dropout,
-                    activation=configs.activation,
+                    configs['d_model'],
+                    configs['d_ff'],
+                    dropout=configs['dropout'],
+                    activation=configs['activation'],
                 )
-                for l in range(configs.e_layers)
+                for l in range(configs['e_layers'])
             ],
-            norm_layer=torch.nn.LayerNorm(configs.d_model),
+            norm_layer=torch.nn.LayerNorm(configs['d_model']),
         )
         # Decoder
         if self.task_name == "classification":
             self.act = F.gelu
-            self.dropout = nn.Dropout(configs.dropout)
+            self.dropout = nn.Dropout(configs['dropout'])
             self.projection = nn.Linear(
-                configs.d_model
+                configs['d_model']
                 * sum(patch_num_list)
-                * (1 if not self.single_channel else configs.enc_in),
-                configs.num_class,
+                * (1 if not self.single_channel else configs['enc_in']),
+                configs['num_class'],
             )
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):

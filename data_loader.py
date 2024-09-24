@@ -2,7 +2,7 @@ import os
 import torch
 import numpy as np
 
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -87,16 +87,16 @@ class KMediconLoader(Dataset):
 
         if flag == "TRAIN":
             ids = self.train_ids
-            print("train ids:", ids)
+            # print("train ids:", ids)
         elif flag == "VAL":
             ids = self.val_ids
-            print("val ids:", ids)
+            # print("val ids:", ids)
         elif flag == "TEST":
             ids = self.test_ids
-            print("test ids:", ids)
+            # print("test ids:", ids)
         else:
             ids = subject_label[:, 1]
-            print("all ids:", ids)
+            # print("all ids:", ids)
 
         for j in range(len(filenames)):
             trial_label = subject_label[j]
