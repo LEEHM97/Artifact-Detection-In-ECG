@@ -18,23 +18,21 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
     
-    setting = "{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_fc{}_eb{}_dt{}_{}_seed{}".format(
+    setting = "{}_{}_{}_{}_bs{}_sl{}_lr{}_pl{}_dm{}_nh{}_el{}_df{}_fc{}_eb{}_{}_seed{}".format(
                 CONFIG['task_name'],
                 CONFIG['model_id'],
                 CONFIG['model'],
                 CONFIG['data'],
-                CONFIG['features'],
+                CONFIG['batch_size'],
                 CONFIG['seq_len'],
-                CONFIG['label_len'],
+                CONFIG['learning_rate'],
                 CONFIG['pred_len'],
                 CONFIG['d_model'],
                 CONFIG['n_heads'],
                 CONFIG['e_layers'],
-                CONFIG['d_layers'],
                 CONFIG['d_ff'],
                 CONFIG['factor'],
                 CONFIG['embed'],
-                CONFIG['distil'],
                 CONFIG['des'],
                 CONFIG['seed'],
             )
