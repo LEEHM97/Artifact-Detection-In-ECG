@@ -5,6 +5,7 @@ CONFIG = {
     'model_id': 'K-Medicon',
     'task_name': 'classification',
     'model': 'Medformer',
+    'monitor': 'vali_loss',
     
     # Data loader
     'data': 'K-Medicon',
@@ -45,7 +46,7 @@ CONFIG = {
     'num_workers': 0,
     'itr': 1,
     'train_epochs': 100,
-    'batch_size': 8,
+    'batch_size': 4,
     'patience': 10,
     'learning_rate': 1e-4,
     'des': 'Exp',
