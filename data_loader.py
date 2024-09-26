@@ -127,6 +127,26 @@ class KMediconLoader(Dataset):
     def __len__(self):
         return len(self.y)
     
+
+class PublicTest(Dataset):
+    def __init__(self, data_path):
+        with h5py.File(data_path, 'r') as f:
+            ecg = f['ecg'][:]
+            # label = f['label'][:]
+        
+        self.X = ecg
+        # self.y = label
+
+        # pre_process
+        self.X = normalize_batch_ts(self.X)
+        # self.X = bandpass_filter_func(self.X, fs=250, lowcut=0.5, highcut=45)
+
+    def __getitem__(self, index):
+        return torch.from_numpy(self.X[index])
+
+    def __len__(self):
+        return len(self.X)
+    
     
 def normalize_ts(ts):
     """normalize a time-series data
