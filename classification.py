@@ -68,7 +68,7 @@ class Exp_Classification(Exp_Basic):
         else:
             self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, label, padding_mask) in enumerate(vali_loader):
+            for i, (batch_x, label, padding_mask) in enumerate(tqdm(vali_loader)):
                 batch_x = batch_x.float().to(self.device)
                 padding_mask = padding_mask.float().to(self.device)
                 label = label.to(self.device)
@@ -145,12 +145,12 @@ class Exp_Classification(Exp_Basic):
 
         path = (
             "./checkpoints/"
-            + self.args['task_name']
-            + "/"
-            + self.args['model_id']
-            + "/"
-            + self.args['model']
-            + "/"
+            # + self.args['task_name']
+            # + "/"
+            # + self.args['model_id']
+            # + "/"
+            # + self.args['model']
+            # + "/"
             + setting
             + "/"
         )
@@ -174,7 +174,7 @@ class Exp_Classification(Exp_Basic):
             self.model.train()
             epoch_time = time.time()
 
-            for i, (batch_x, label, padding_mask) in enumerate(train_loader):
+            for i, (batch_x, label, padding_mask) in enumerate(tqdm(train_loader)):
                 iter_count += 1
                 model_optim.zero_grad()
 
@@ -186,23 +186,24 @@ class Exp_Classification(Exp_Basic):
                 loss = criterion(outputs, label.long())
                 train_loss.append(loss.item())
 
-                if (i + 1) % 100 == 0:
-                    print(
-                        "\titers: {0}, epoch: {1} | loss: {2:.7f}".format(
-                            i + 1, epoch + 1, loss.item()
-                        )
-                    )
-                    speed = (time.time() - time_now) / iter_count
-                    left_time = speed * (
-                        (self.args['train_epochs'] - epoch) * train_steps - i
-                    )
-                    print(
-                        "\tspeed: {:.4f}s/iter; left time: {:.4f}s".format(
-                            speed, left_time
-                        )
-                    )
-                    iter_count = 0
-                    time_now = time.time()
+                # if (i + 1) % 100 == 0:
+                #     print(
+                #         "\titers: {0}, epoch: {1} | loss: {2:.7f}".format(
+                #             i + 1, epoch + 1, loss.item()
+                #         )
+                #     )
+                #     speed = (time.time() - time_now) / iter_count
+                #     left_time = speed * (
+                #         (self.args['train_epochs'] - epoch) * train_steps - i
+                #     )
+                #     print(
+                #         "\tspeed: {:.4f}s/iter; left time: {:.4f}s".format(
+                #             speed, left_time
+                #         )
+                #     )
+                
+                    # iter_count = 0
+                    # time_now = time.time()
 
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=4.0)
@@ -237,7 +238,8 @@ class Exp_Classification(Exp_Basic):
                 f"CPI: {test_metrics_dict['CPI']:.5f}\n"
             )
             early_stopping(
-                -val_metrics_dict["F1"],
+                # -val_metrics_dict["CPI"],
+                vali_loss,
                 self.swa_model if self.swa else self.model,
                 path,
             )
@@ -262,12 +264,12 @@ class Exp_Classification(Exp_Basic):
             print("loading model")
             path = (
                 "./checkpoints/"
-                + self.args['task_name']
-                + "/"
-                + self.args['model_id']
-                + "/"
-                + self.args['model']
-                + "/"
+                # + self.args['task_name']
+                # + "/"
+                # + self.args['model_id']
+                # + "/"
+                # + self.args['model']
+                # + "/"
                 + setting
                 + "/"
             )
