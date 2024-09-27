@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 
 class KMediconLoader(Dataset):
     def __init__(self, root_path, flag=None):
-        with h5py.File(os.path.join(root_path, "features.h5"), 'r') as f:
+        with h5py.File(os.path.join(root_path, "processed_features_500.h5"), 'r') as f:
             ecg = f['ecg'][:]
             label = f['label'][:]
         
@@ -27,6 +27,9 @@ class KMediconLoader(Dataset):
         )
 
         self.X, self.y = self.load_ptbxl(self.ecg, self.label, flag=flag)
+
+        self.X = self.X.reshape(-1,2500,12)
+
 
         # pre_process
         self.X = normalize_batch_ts(self.X)
@@ -113,7 +116,7 @@ class KMediconLoader(Dataset):
         #             label_list.append(trial_label)
                     
         # reshape and shuffle
-        X = ecg[ids]
+        X = ecg[ids]        
         y = label[ids]
         X, y = shuffle(X, y, random_state=42)
 
@@ -132,17 +135,17 @@ class PublicTest(Dataset):
     def __init__(self, data_path):
         with h5py.File(data_path, 'r') as f:
             ecg = f['ecg'][:]
-            # label = f['label'][:]
+            label = f['label'][:]
         
         self.X = ecg
-        # self.y = label
-
+        self.y = label
+        self.X = self.X.reshape(-1,2500,12)
         # pre_process
         self.X = normalize_batch_ts(self.X)
         # self.X = bandpass_filter_func(self.X, fs=250, lowcut=0.5, highcut=45)
 
     def __getitem__(self, index):
-        return torch.from_numpy(self.X[index])
+        return torch.from_numpy(self.X[index]), torch.from_numpy(np.asarray(self.y[index]))
 
     def __len__(self):
         return len(self.X)
