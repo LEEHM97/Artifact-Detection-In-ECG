@@ -111,14 +111,14 @@ class Exp_Classification(Exp_Basic):
         trues = trues.flatten().cpu().numpy()
         # accuracy = cal_accuracy(predictions, trues)
 
-        f1 = f1_score(trues, predictions, average="macro")
-        auroc = roc_auc_score(trues_onehot, probs, multi_class="ovr")
+        f1 = f1_score(trues, predictions, average="binary")
+        auroc = roc_auc_score(trues_onehot, probs)
         mcc = mcc_score(trues, predictions)
 
         metrics_dict = {
             "Accuracy": accuracy_score(trues, predictions),
-            "Precision": precision_score(trues, predictions, average="macro"),
-            "Recall": recall_score(trues, predictions, average="macro"),
+            "Precision": precision_score(trues, predictions, average="binary"),
+            "Recall": recall_score(trues, predictions, average="binary"),
             "F1": f1,
             "AUROC": auroc,
             "AUPRC": average_precision_score(trues_onehot, probs, average="macro"),
@@ -174,6 +174,7 @@ class Exp_Classification(Exp_Basic):
             self.model.train()
             epoch_time = time.time()
 
+            print("[Train Step]")
             for i, (batch_x, label, padding_mask) in enumerate(tqdm(train_loader)):
                 iter_count += 1
                 model_optim.zero_grad()
@@ -213,7 +214,9 @@ class Exp_Classification(Exp_Basic):
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
+            print("[Validation Step]")
             vali_loss, val_metrics_dict = self.vali(vali_data, vali_loader, criterion)
+            print("[Test Step]")
             test_loss, test_metrics_dict = self.vali(test_data, test_loader, criterion)
 
             print(
