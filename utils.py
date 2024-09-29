@@ -5,7 +5,7 @@ import math
 plt.switch_backend("agg")
 
 
-def adjust_learning_rate(optimizer, epoch, args):
+def adjust_learning_rate(optimizer, epoch, args, scheduler=None):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))
     if args.lradj == "type1":
         lr_adjust = {epoch: args.learning_rate * (0.5 ** ((epoch - 1) // 1))}
@@ -17,12 +17,18 @@ def adjust_learning_rate(optimizer, epoch, args):
             / 2
             * (1 + math.cos(epoch / args.train_epochs * math.pi))
         }
+    elif args.lradj == "onecycle":
+        if scheduler is not None:
+            scheduler.step()  # Update the learning rate using OneCycleLR
+            lr = scheduler.get_last_lr()[0]  # Get the current learning rate
+            print("Updating learning rate to {}".format(lr))
+            return  # Early return since scheduler handles the update
+
     if epoch in lr_adjust.keys():
         lr = lr_adjust[epoch]
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
         print("Updating learning rate to {}".format(lr))
-
 
 class EarlyStopping:
     def __init__(self, patience=10, verbose=False, delta=0.0):
