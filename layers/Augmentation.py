@@ -86,6 +86,33 @@ class FrequencyMask(nn.Module):
             x = torch.fft.irfft(x_fft, n=T, dim=-1)
         return x
 
+class RandomErasing(nn.Module):
+    def __init__(self, ratio=0.1):
+        super().__init__()
+        self.ratio = ratio
+
+    def forward(self, x):
+        if self.training:
+            B, C, T = x.shape
+            for b in range(B):
+                if torch.rand(1) < self.ratio:
+                    erase_length = int(T * self.ratio)
+                    start_idx = torch.randint(0, T - erase_length, (1,)).item()
+                    x[b, :, start_idx:start_idx + erase_length] = 0
+        return x
+
+class GaussianNoise(nn.Module):
+    def __init__(self, mean=0.0, std=0.1):
+        super().__init__()
+        self.mean = mean
+        self.std = std
+
+    def forward(self, x):
+        if self.training:
+            noise = torch.randn_like(x) * self.std + self.mean
+            x += noise
+        return x
+
 
 def get_augmentation(augmentation):
     if augmentation.startswith("jitter"):
@@ -118,5 +145,15 @@ def get_augmentation(augmentation):
         return TemporalMask(float(augmentation[4:]))
     elif augmentation == "none":
         return nn.Identity()
+    
+    elif augmentation.startswith("randomerasing"):
+        if len(augmentation) == 13:
+            return RandomErasing()
+        return RandomErasing(float(augmentation[13:]))
+    elif augmentation.startswith("gaussian"):
+        if len(augmentation) == 8:
+            return GaussianNoise()
+        return GaussianNoise(float(augmentation[8:11]), float(augmentation[11:]))
+
     else:
         raise ValueError(f"Unknown augmentation {augmentation}")
