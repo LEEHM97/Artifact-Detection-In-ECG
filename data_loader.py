@@ -11,29 +11,36 @@ from sklearn.preprocessing import StandardScaler
 
 class KMediconLoader(Dataset):
     def __init__(self, root_path, flag=None):
-        with h5py.File(os.path.join(root_path, "processed_features_500.h5"), 'r') as f:
+        # features.h5 : 500 Hz Original sampling rate file
+        # processed_features.h5 : 250 Hz Resampled sampling rate file
+        data_file = os.path.join(root_path, "processed_features.h5")
+        with h5py.File(data_file, 'r') as f:
             ecg = f['ecg'][:]
-            label = f['label'][:]
-        
+            label = f['label'][:]        
+            ### 🖌️ Sample test
+            # ecg = ecg[15:45]
+            # label = label[15:45]
+
         self.ecg = ecg
         self.label = label
         self.root_path = root_path
 
         a, b = 0.6, 0.8
+        # a, b = 0.8, -1
 
         # list of IDs for training, val, and test sets
         self.train_ids, self.val_ids, self.test_ids = self.load_train_val_test_list(
             self.label, a, b
         )
 
-        self.X, self.y = self.load_ptbxl(self.ecg, self.label, flag=flag)
+        self.X, self.y = self.load_ecgh5(self.ecg, self.label, flag=flag)
 
         self.X = self.X.reshape(-1,2500,12)
-
 
         # pre_process
         self.X = normalize_batch_ts(self.X)
         # self.X = bandpass_filter_func(self.X, fs=250, lowcut=0.5, highcut=45)
+        # print(f'self.X.shape: {self.X.shape}')
 
         self.max_seq_len = self.X.shape[1]
 
@@ -63,20 +70,23 @@ class KMediconLoader(Dataset):
         val_ids = (
             norm_list[int(a * len(norm_list)) : int(b * len(norm_list))]
             + arti_list[int(a * len(arti_list)) : int(b * len(arti_list))]
+            # norm_list[int(a * len(norm_list)) : b]
+            # + arti_list[int(a * len(arti_list)) : b]
         )
         test_ids = (
             norm_list[int(b * len(norm_list)) :]
             + arti_list[int(b * len(arti_list)) :]
+            # norm_list[b:]
+            # + arti_list[b:]
         )
 
         return train_ids, val_ids, test_ids
 
-    def load_ptbxl(self, ecg, label, flag=None):
+    def load_ecgh5(self, ecg, label, flag=None):
         """
-        Loads ptb-xl data from npy files in data_path based on flag and ids in label_path
+        Loads 12-lead ECG data from h5 files in data_path based on flag and ids in label_path
         Args:
-            data_path: directory of data files
-            label_path: directory of label.npy file
+            data_path: directory of data & label files
             flag: 'train', 'val', or 'test'
         Returns:
             X: (num_samples, seq_len, feat_dim) np.array of features
@@ -149,8 +159,8 @@ class PublicTest(Dataset):
 
     def __len__(self):
         return len(self.X)
-    
-    
+
+
 def normalize_ts(ts):
     """normalize a time-series data
 
@@ -164,7 +174,6 @@ def normalize_ts(ts):
     scaler.fit(ts)
     ts = scaler.transform(ts)
     return ts    
-    
     
 def normalize_batch_ts(batch):
     """normalize a batch of time-series data
