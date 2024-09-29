@@ -70,6 +70,7 @@ class Model(nn.Module):
                 * sum(patch_num_list)
                 * (1 if not self.single_channel else configs['enc_in']),
                 configs['num_class'],
+                # 1, 
             )
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
