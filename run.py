@@ -44,13 +44,13 @@ if __name__ == "__main__":
         print("==============================   Start Training   ==============================")
         exp.train(setting)
     
-        print("===============================      Testing      ==============================")
+        print("==============================      Testing      ==============================")
         exp.test(setting)
         
         torch.cuda.empty_cache()
     
     else:
-        print("===============================      Testing      ==============================")
+        print("==============================      Testing      ==============================")
         exp.test(setting, test=1)
         
         torch.cuda.empty_cache()
