@@ -9,7 +9,8 @@ CONFIG = {
     
     # Data loader
     'data': 'K-Medicon',
-    'root_path': './dataset/KMedicon/',
+    # 'root_path': './dataset/SingleLead/',
+    'root_path': './dataset/',
     # 'features': 'M',    # options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate"
     # 'freq': 's',
     
@@ -39,7 +40,7 @@ CONFIG = {
     'no_inter_attn': False,
     # 'sampling_rate': 125,
     'patch_len_list': '2,4,8,8,16,16,16,16,32,32,32,32,32,32,32,32',
-    'single_channel': False,
+    'single_channel': True,
     'augmentations': 'jitter0.2,scale0.2,drop0.5',
 
     # Optimization

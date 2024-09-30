@@ -11,7 +11,8 @@ from sklearn.preprocessing import StandardScaler
 
 class KMediconLoader(Dataset):
     def __init__(self, root_path, flag=None):
-        with h5py.File(os.path.join(root_path, "processed_features_500.h5"), 'r') as f:
+        with h5py.File(os.path.join(root_path, "SingleLead/normalized_sigle_lead_processed_features.h5"), 'r') as f:
+        # with h5py.File(os.path.join(root_path, "processed_features.h5"), 'r') as f:
             ecg = f['ecg'][:]
             label = f['label'][:]
         
@@ -28,7 +29,11 @@ class KMediconLoader(Dataset):
 
         self.X, self.y = self.load_ptbxl(self.ecg, self.label, flag=flag)
 
-        self.X = self.X.reshape(-1,2500,12)
+        # self.X = self.X.reshape(-1,2500,12)
+        
+        downsample_factor = 4
+        downsampled_array = self.X.reshape(self.X.shape[0], -1, downsample_factor).mean(axis=2)
+        self.X = downsampled_array
 
 
         # pre_process
@@ -161,6 +166,7 @@ def normalize_ts(ts):
         ts (numpy.ndarray): The processed time-series.
     """
     scaler = StandardScaler()
+    ts = ts.reshape(-1,1)
     scaler.fit(ts)
     ts = scaler.transform(ts)
     return ts    
