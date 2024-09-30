@@ -1,15 +1,18 @@
+from config import CONFIG
 from data_factory import data_provider
+from data_loader import PublicTest
 from exp_basic import Exp_Basic
-from utils import EarlyStopping, mcc_score
+from utils import EarlyStopping
 import torch
 import torch.nn as nn
 from torch import optim
+from torch.utils.data import Dataset, DataLoader
 import os
 import time
+import shutil
 import warnings
 import numpy as np
 import random
-
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
@@ -17,6 +20,7 @@ from sklearn.metrics import recall_score
 from sklearn.metrics import f1_score
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import average_precision_score
+from sklearn.metrics import matthews_corrcoef
 
 warnings.filterwarnings("ignore")
 
@@ -36,8 +40,11 @@ class Exp_Classification(Exp_Basic):
         self.args['pred_len'] = 0
         # self.args.enc_in = train_data.feature_df.shape[1]
         # self.args.num_class = len(train_data.class_names)
+        # self.args['num_class'] = len(np.unique(train_data.y))
         self.args['enc_in'] = test_data.X.shape[2]  # redefine enc_in
         self.args['num_class'] = len(np.unique(test_data.y))
+        # self.args['num_class'] = CONFIG['num_class']
+        
         # model init
         model = (
             self.model_dict[self.args['model']].Model(self.args).float()
@@ -57,6 +64,7 @@ class Exp_Classification(Exp_Basic):
 
     def _select_criterion(self):
         criterion = nn.CrossEntropyLoss()
+        # criterion = nn.BCEWithLogitsLoss()
         return criterion
 
     def vali(self, vali_data, vali_loader, criterion):
@@ -79,7 +87,9 @@ class Exp_Classification(Exp_Basic):
                     outputs = self.model(batch_x, padding_mask, None, None)
 
                 pred = outputs.detach().cpu()
+
                 loss = criterion(pred, label.long().cpu())
+                # loss = criterion(pred, label.float().cpu())
                 total_loss.append(loss)
 
                 preds.append(outputs.detach())
@@ -104,6 +114,9 @@ class Exp_Classification(Exp_Basic):
             .numpy()
         )
         # print(trues_onehot.shape)
+        print(f"trues.shape: {trues.shape}")
+        print(f"preds.shape: {preds.shape}")
+
         predictions = (
             torch.argmax(probs, dim=1).cpu().numpy()
         )  # (total_samples,) int class index for each sample
@@ -113,7 +126,8 @@ class Exp_Classification(Exp_Basic):
 
         f1 = f1_score(trues, predictions, average="binary")
         auroc = roc_auc_score(trues_onehot, probs)
-        mcc = mcc_score(trues, predictions)
+        # auroc = roc_auc_score(trues, probs)
+        mcc = matthews_corrcoef(trues, predictions)
 
         metrics_dict = {
             "Accuracy": accuracy_score(trues, predictions),
@@ -122,6 +136,7 @@ class Exp_Classification(Exp_Basic):
             "F1": f1,
             "AUROC": auroc,
             "AUPRC": average_precision_score(trues_onehot, probs, average="macro"),
+            # "AUPRC": average_precision_score(trues, probs, average="macro"),
             "MCC": mcc,
             "CPI": (0.25 * f1) + (0.25 * auroc) + (0.5 * mcc)
         }
@@ -136,6 +151,7 @@ class Exp_Classification(Exp_Basic):
         train_data, train_loader = self._get_data(flag="TRAIN")
         vali_data, vali_loader = self._get_data(flag="VAL")
         test_data, test_loader = self._get_data(flag="TEST")
+
         print(train_data.X.shape)
         print(train_data.y.shape)
         print(vali_data.X.shape)
@@ -156,6 +172,14 @@ class Exp_Classification(Exp_Basic):
         )
         if not os.path.exists(path):
             os.makedirs(path)
+        
+        # config 파일을 결과 폴더에 복사
+        config_path = "./config.py" # config 파일의 경로를 args에서 가져옵니다.
+        new_file_path = f"{path}config_{self.args['model_id']}.py" # config 파일의 경로를 args에서 가져옵니다.
+        if os.path.exists(config_path):
+            shutil.copy(config_path, new_file_path)
+        else:
+            print(f"Config file not found: {config_path}")
 
         time_now = time.time()
 
@@ -166,6 +190,15 @@ class Exp_Classification(Exp_Basic):
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
+        
+        # OneCycleLR 스케줄러 초기화
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            model_optim,
+            # max_lr=self.args['learning_rate'],  # 초기 학습률과 동일하게 설정
+            max_lr=self.args['max_lr'],  # init_lr의 2 ~ 10배
+            total_steps=self.args['train_epochs'] * train_steps,
+            # optional parameters can be set here (e.g., pct_start, anneal_strategy)
+        )
 
         for epoch in range(self.args['train_epochs']):
             iter_count = 0
@@ -184,7 +217,13 @@ class Exp_Classification(Exp_Basic):
                 label = label.to(self.device)
 
                 outputs = self.model(batch_x, padding_mask, None, None)
+                # print(f"outputs.shape: {outputs.shape}")
+                # print(f"label.shape: {label.shape}")
+                # print(f">> label.shape: {label.shape}")
+                # print(f">> outputs.shape: {outputs.shape}")
+
                 loss = criterion(outputs, label.long())
+                # loss = criterion(outputs, label.float())
                 train_loss.append(loss.item())
 
                 # if (i + 1) % 100 == 0:
@@ -209,6 +248,7 @@ class Exp_Classification(Exp_Basic):
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=4.0)
                 model_optim.step()
+                scheduler.step()  # 스케줄러 업데이트
 
             self.swa_model.update_parameters(self.model)
 
@@ -241,8 +281,8 @@ class Exp_Classification(Exp_Basic):
                 f"CPI: {test_metrics_dict['CPI']:.5f}\n"
             )
             early_stopping(
-                # -val_metrics_dict["CPI"],
                 vali_loss,
+                # -val_metrics_dict["F1"],
                 self.swa_model if self.swa else self.model,
                 path,
             )
@@ -263,6 +303,7 @@ class Exp_Classification(Exp_Basic):
     def test(self, setting, test=0):
         vali_data, vali_loader = self._get_data(flag="VAL")
         test_data, test_loader = self._get_data(flag="TEST")
+
         if test:
             print("loading model")
             path = (
