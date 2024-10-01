@@ -56,7 +56,8 @@ class Exp_Classification(Exp_Basic):
         return model_optim
 
     def _select_criterion(self):
-        criterion = nn.CrossEntropyLoss()
+        # criterion = nn.CrossEntropyLoss()
+        criterion = nn.BCEWithLogitsLoss()
         return criterion
 
     def vali(self, vali_data, vali_loader, criterion):
