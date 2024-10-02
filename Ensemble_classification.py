@@ -21,40 +21,28 @@ from sklearn.metrics import average_precision_score
 
 warnings.filterwarnings("ignore")
 
-
-class Exp_Classification(Exp_Basic):
-    def __init__(self, args):
-        super().__init__(args)
-
-        self.swa_model = optim.swa_utils.AveragedModel(self.model)
-        self.swa = args['swa']
+class EnsembleModel(nn.Module):
+    def __init__(self, args, models):
+        super(EnsembleModel, self).__init__()
+        
+        self.args = args
+        self.models = nn.ModuleList(models)
+        self.device = 'cuda:0'
+        
+    def forward(self, x, padding_mask, a, b):
+        outputs = [models(x, padding_mask, a, b) for models in self.models]
+        outputs = torch.mean(torch.stack(outputs), dim=0)
+        
+        return outputs
     
-    def _build_model(self):
-        # model input depends on data
-        # train_data, train_loader = self._get_data(flag='TRAIN')
-        test_data, test_loader = self._get_data(flag="TEST")
-        self.args['seq_len'] = test_data.max_seq_len  # redefine seq_len
-        self.args['pred_len'] = 0
-        # self.args.enc_in = train_data.feature_df.shape[1]
-        # self.args.num_class = len(train_data.class_names)
-        self.args['enc_in'] = test_data.X.shape[2]  # redefine enc_in
-        self.args['num_class'] = len(np.unique(test_data.y))
-        # model init
-        model = (
-            self.model_dict[self.args['model']].Model(self.args).float()
-        )  # pass args to model
-        if self.args['use_multi_gpu'] and self.args['use_gpu']:
-            model = nn.DataParallel(model, device_ids=self.args['device_ids'])
-        return model
-
     def _get_data(self, flag):
         random.seed(self.args['seed'])
         data_set, data_loader = data_provider(self.args, flag)
         return data_set, data_loader
 
     def _select_optimizer(self):
-        # model_optim = optim.Adam(self.model.parameters(), lr=self.args['learning_rate'], weight_decay=self.args['wd'])
-        model_optim = optim.Adam(self.model.parameters(), lr=self.args['learning_rate'])
+        # model_optim = optim.Adam(self.models.parameters(), lr=self.args['learning_rate'], weight_decay=self.args['wd'])
+        model_optim = optim.Adam(self.models.parameters(), lr=self.args['learning_rate'])
         return model_optim
 
     def _select_criterion(self):
@@ -68,26 +56,21 @@ class Exp_Classification(Exp_Basic):
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
         
         return scheduler
-
-
+    
     def vali(self, vali_data, vali_loader, criterion):
         total_loss = []
         preds = []
         trues = []
-        if self.swa:
-            self.swa_model.eval()
-        else:
-            self.model.eval()
+        
+        self.models.eval()
+        
         with torch.no_grad():
             for i, (batch_x, label, padding_mask) in enumerate(tqdm(vali_loader)):
                 batch_x = batch_x.float().to(self.device)
                 padding_mask = padding_mask.float().to(self.device)
                 label = label.to(self.device)
 
-                if self.swa:
-                    outputs = self.swa_model(batch_x, padding_mask, None, None)
-                else:
-                    outputs = self.model(batch_x, padding_mask, None, None)
+                outputs = self.forward(batch_x, padding_mask, None, None)
 
                 pred = outputs.detach().cpu()
                 label_ = nn.functional.one_hot(label.long(), num_classes=2)
@@ -139,10 +122,8 @@ class Exp_Classification(Exp_Basic):
             "CPI": (0.25 * f1) + (0.25 * auroc) + (0.5 * mcc)
         }
 
-        if self.swa:
-            self.swa_model.train()
-        else:
-            self.model.train()
+        self.models.train()
+
         return total_loss, metrics_dict
 
     def train(self, setting):
@@ -158,12 +139,6 @@ class Exp_Classification(Exp_Basic):
 
         path = (
             "./checkpoints/"
-            # + self.args['task_name']
-            # + "/"
-            # + self.args['model_id']
-            # + "/"
-            # + self.args['model']
-            # + "/"
             + setting
             + "/"
         )
@@ -185,10 +160,8 @@ class Exp_Classification(Exp_Basic):
             iter_count = 0
             train_loss = []
 
-            self.model.train()
+            self.models.train()
             epoch_time = time.time()
-            # current_lr = scheduler.get_lr()[0]
-            # current_lr = scheduler.get_last_lr()[0]
             
             print("[Train Step]")
             for i, (batch_x, label, padding_mask) in enumerate(tqdm(train_loader)):
@@ -199,39 +172,18 @@ class Exp_Classification(Exp_Basic):
                 padding_mask = padding_mask.float().to(self.device)
                 label = label.to(self.device)
 
-                outputs = self.model(batch_x, padding_mask, None, None)
+                outputs = self.forward(batch_x, padding_mask, None, None)
                 
                 label_ = nn.functional.one_hot(label.long(), num_classes=2)
                 loss = criterion(outputs, label_.float())
                 train_loss.append(loss.item())
 
-                # if (i + 1) % 100 == 0:
-                #     print(
-                #         "\titers: {0}, epoch: {1} | loss: {2:.7f}".format(
-                #             i + 1, epoch + 1, loss.item()
-                #         )
-                #     )
-                #     speed = (time.time() - time_now) / iter_count
-                #     left_time = speed * (
-                #         (self.args['train_epochs'] - epoch) * train_steps - i
-                #     )
-                #     print(
-                #         "\tspeed: {:.4f}s/iter; left time: {:.4f}s".format(
-                #             speed, left_time
-                #         )
-                #     )
-                
-                    # iter_count = 0
-                    # time_now = time.time()
-
                 loss.backward()
-                nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=4.0)
+                # nn.utils.clip_grad_norm_(self.models.parameters(), max_norm=4.0)
                 model_optim.step()
 
+            # self.models.update_parameters(self.models)
 
-            self.swa_model.update_parameters(self.model)
-
-            # print("Epoch: {} cost time: {} Current LR: {}".format(epoch + 1, time.time() - epoch_time, current_lr))
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
             
@@ -267,46 +219,34 @@ class Exp_Classification(Exp_Basic):
             early_stopping(
                 # -val_metrics_dict["CPI"],
                 vali_loss,
-                self.swa_model if self.swa else self.model,
+                self.models,
                 path,
             )
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
-            # if (epoch + 1) % 5 == 0:
-            #     adjust_learning_rate(model_optim, epoch + 1, self.args)
 
         best_model_path = path + "checkpoint.pth"
-        if self.swa:
-            self.swa_model.load_state_dict(torch.load(best_model_path))
-        else:
-            self.model.load_state_dict(torch.load(best_model_path))
+        
+        self.models.load_state_dict(torch.load(best_model_path))
 
-        return self.model
+        return self.models
 
     def test(self, setting, test=0):
         vali_data, vali_loader = self._get_data(flag="VAL")
         test_data, test_loader = self._get_data(flag="TEST")
         if test:
-            print("loading model")
+            print("loading models")
             path = (
                 "./checkpoints/"
-                # + self.args['task_name']
-                # + "/"
-                # + self.args['model_id']
-                # + "/"
-                # + self.args['model']
-                # + "/"
                 + setting
                 + "/"
             )
             model_path = path + "checkpoint.pth"
             if not os.path.exists(model_path):
-                raise Exception("No model found at %s" % model_path)
-            if self.swa:
-                self.swa_model.load_state_dict(torch.load(model_path))
-            else:
-                self.model.load_state_dict(torch.load(model_path))
+                raise Exception("No models found at %s" % model_path)
+            
+            self.models.load_state_dict(torch.load(model_path))
 
         criterion = self._select_criterion()
         vali_loss, val_metrics_dict = self.vali(vali_data, vali_loader, criterion)
@@ -371,4 +311,4 @@ class Exp_Classification(Exp_Basic):
         f.write("\n")
         f.write("\n")
         f.close()
-        return
+        return    

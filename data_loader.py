@@ -11,10 +11,10 @@ from sklearn.preprocessing import StandardScaler
 
 class KMediconLoader(Dataset):
     def __init__(self, root_path, flag=None):
-        with h5py.File(os.path.join(root_path, "processed_features_500.h5"), 'r') as f:
+        with h5py.File(os.path.join(root_path, "processed_features.h5"), 'r') as f:
             ecg = f['ecg'][:]
             label = f['label'][:]
-        
+
         self.ecg = ecg
         self.label = label
         self.root_path = root_path
