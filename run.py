@@ -50,7 +50,7 @@ if __name__ == "__main__":
         torch.cuda.empty_cache()
     
     else:
-        print("===============================      Testing      ==============================")
+        print("===============================      Best Testing      ==============================")
         exp.test(setting, test=1)
         
         torch.cuda.empty_cache()
