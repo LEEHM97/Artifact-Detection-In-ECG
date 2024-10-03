@@ -56,8 +56,8 @@ class Exp_Classification(Exp_Basic):
         return model_optim
 
     def _select_criterion(self):
-        # criterion = nn.CrossEntropyLoss()
-        criterion = nn.BCEWithLogitsLoss()
+        criterion = nn.CrossEntropyLoss()
+        # criterion = nn.BCEWithLogitsLoss()
         return criterion
 
     def vali(self, vali_data, vali_loader, criterion):
@@ -80,8 +80,8 @@ class Exp_Classification(Exp_Basic):
                     outputs = self.model(batch_x, padding_mask, None, None)
 
                 pred = outputs.detach().cpu()
-                # loss = criterion(pred, label.long().cpu()) #CrossEntropy
-                loss = criterion(pred[:,0], label.float().cpu()) #BCEloss
+                loss = criterion(pred, label.long().cpu()) #CrossEntropy
+                # loss = criterion(pred[:,0], label.float().cpu()) #BCEloss
                 
                 total_loss.append(loss)
 
@@ -187,8 +187,8 @@ class Exp_Classification(Exp_Basic):
                 label = label.to(self.device)
 
                 outputs = self.model(batch_x, padding_mask, None, None)
-                # loss = criterion(outputs, label.long()) #CrossEntropy
-                loss = criterion(outputs[:,0], label.float()) #BCEloss
+                loss = criterion(outputs, label.long()) #CrossEntropy
+                # loss = criterion(outputs[:,0], label.float()) #BCEloss
                 train_loss.append(loss.item())
 
                 # if (i + 1) % 100 == 0:
