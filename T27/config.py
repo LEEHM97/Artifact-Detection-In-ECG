@@ -10,7 +10,7 @@ CONFIG = {
     
     # Data loader
     'data': 'K-Medicon',
-    'root_path': './T27/dataset/',
+    'root_path': './dataset/',
     'signal_hz': 250, # 500,
     # 'features': 'M',    # options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate"
     # 'freq': 's',
