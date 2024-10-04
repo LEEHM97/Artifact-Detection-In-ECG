@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 
 class KMediconLoader(Dataset):
     def __init__(self, root_path, flag=None):
-        with h5py.File(os.path.join(root_path, "processed_features_500.h5"), 'r') as f:
+        with h5py.File(os.path.join(root_path, "processed_features.h5"), 'r') as f:
             ecg = f['ecg'][:]
             label = f['label'][:]
         
@@ -22,14 +22,13 @@ class KMediconLoader(Dataset):
         a, b = 0.6, 0.8
 
         # list of IDs for training, val, and test sets
-        self.train_ids, self.val_ids, self.test_ids = self.load_train_val_test_list(
+        self.train_ids, self.val_ids = self.load_train_val_test_list(
             self.label, a, b
         )
 
         self.X, self.y = self.load_ptbxl(self.ecg, self.label, flag=flag)
 
         self.X = self.X.reshape(-1,2500,12)
-
 
         # pre_process
         self.X = normalize_batch_ts(self.X)
@@ -57,19 +56,19 @@ class KMediconLoader(Dataset):
         )  # Artifact ECG IDs
 
         train_ids = (
-            norm_list[: int(a * len(norm_list))]
-            + arti_list[: int(a * len(arti_list))]
+            norm_list[: int(b * len(norm_list))]
+            + arti_list[: int(b * len(arti_list))]
         )
         val_ids = (
-            norm_list[int(a * len(norm_list)) : int(b * len(norm_list))]
-            + arti_list[int(a * len(arti_list)) : int(b * len(arti_list))]
+            norm_list[int(b * len(norm_list)) : ]
+            + arti_list[int(b * len(arti_list)) : ]
         )
-        test_ids = (
-            norm_list[int(b * len(norm_list)) :]
-            + arti_list[int(b * len(arti_list)) :]
-        )
+        # test_ids = (
+        #     norm_list[int(b * len(norm_list)) :]
+        #     + arti_list[int(b * len(arti_list)) :]
+        # )
 
-        return train_ids, val_ids, test_ids
+        return train_ids, val_ids
 
     def load_ptbxl(self, ecg, label, flag=None):
         """
@@ -123,9 +122,11 @@ class KMediconLoader(Dataset):
         return X, y  # only use the first column (label)
 
     def __getitem__(self, index):
-        return torch.from_numpy(self.X[index]), torch.from_numpy(
-            np.asarray(self.y[index])
-        )
+        X = torch.from_numpy(self.X[index])
+        y = torch.from_numpy(np.asarray(self.y[index]))
+        y = torch.nn.functional.one_hot(y.reshape(-1,).to(torch.long),num_classes=2)
+        
+        return X, y
 
     def __len__(self):
         return len(self.y)

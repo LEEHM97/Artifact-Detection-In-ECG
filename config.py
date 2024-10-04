@@ -1,8 +1,8 @@
 CONFIG = {
     # Basic config
-    'seed': 41,
+    'seed': 45,
     'is_training': 1,
-    'model_id': 'K-Medicon',
+    'model_id': 'S01_9',
     'task_name': 'classification',
     'model': 'Medformer',
     'monitor': 'vali_loss',
@@ -47,7 +47,7 @@ CONFIG = {
     'itr': 1,
     'train_epochs': 100,
     'batch_size': 4,
-    'patience': 10,
+    'patience': 5,
     'learning_rate': 1e-4,
     'des': 'Exp',
     'loss': 'MSE',

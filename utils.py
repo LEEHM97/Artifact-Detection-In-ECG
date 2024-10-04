@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.nn as nn
 import matplotlib.pyplot as plt
 import math
 plt.switch_backend("agg")
@@ -141,3 +142,23 @@ def calculate_cpi(y_true, y_pred, f1, auroc):
     cpi = 0.25 * f1 + 0.25 * auroc + 0.5 * mcc_value
     
     return cpi
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1.0, gamma=2.0, reduction='mean'):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+
+    def forward(self, inputs, targets):
+        # 시그모이드 함수 적용
+        BCE_loss = nn.BCEWithLogitsLoss(reduction='none')(inputs, targets)
+        pt = torch.exp(-BCE_loss)  # 모델의 예측 확률
+        focal_loss = self.alpha * (1 - pt) ** self.gamma * BCE_loss
+
+        if self.reduction == 'mean':
+            return focal_loss.mean()
+        elif self.reduction == 'sum':
+            return focal_loss.sum()
+        else:
+            return focal_loss

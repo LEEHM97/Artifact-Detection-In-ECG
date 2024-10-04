@@ -1,6 +1,6 @@
 from data_factory import data_provider
 from exp_basic import Exp_Basic
-from utils import EarlyStopping, mcc_score
+from utils import EarlyStopping, mcc_score, FocalLoss
 import torch
 import torch.nn as nn
 from torch import optim
@@ -31,7 +31,7 @@ class Exp_Classification(Exp_Basic):
     def _build_model(self):
         # model input depends on data
         # train_data, train_loader = self._get_data(flag='TRAIN')
-        test_data, test_loader = self._get_data(flag="TEST")
+        test_data, test_loader = self._get_data(flag="VAL")
         self.args['seq_len'] = test_data.max_seq_len  # redefine seq_len
         self.args['pred_len'] = 0
         # self.args.enc_in = train_data.feature_df.shape[1]
@@ -56,11 +56,21 @@ class Exp_Classification(Exp_Basic):
         return model_optim
 
     def _select_criterion(self):
-        criterion = nn.CrossEntropyLoss()
+        # criterion = nn.CrossEntropyLoss()
+        # criterion = nn.BCEWithLogitsLoss()
+        criterion = FocalLoss()
         return criterion
 
+    def _select_scheduler(self, optimizer):
+            # scheduler = CosineAnnealingWarmUpRestarts(optimizer=optimizer, T_0=CONFIG['T_0'], T_mult=CONFIG['T_mult'], 
+                                                #   eta_max=CONFIG['max_lr'], T_up=CONFIG['T_up'], gamma=CONFIG['gamma'])
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
+            
+            return scheduler
+
+
     def vali(self, vali_data, vali_loader, criterion):
-        total_loss = []
+        total_loss = 0.0
         preds = []
         trues = []
         if self.swa:
@@ -72,6 +82,7 @@ class Exp_Classification(Exp_Basic):
                 batch_x = batch_x.float().to(self.device)
                 padding_mask = padding_mask.float().to(self.device)
                 label = label.to(self.device)
+                label = label.squeeze(1).float()
 
                 if self.swa:
                     outputs = self.swa_model(batch_x, padding_mask, None, None)
@@ -79,37 +90,41 @@ class Exp_Classification(Exp_Basic):
                     outputs = self.model(batch_x, padding_mask, None, None)
 
                 pred = outputs.detach().cpu()
-                loss = criterion(pred, label.long().cpu())
-                total_loss.append(loss)
+                loss = criterion(pred, label.cpu())
+                # loss = criterion(pred, label.float().cpu())
+                # total_loss.append(loss)
+                total_loss += loss * batch_x.size(0)
 
                 preds.append(outputs.detach())
                 trues.append(label)
 
-        total_loss = np.average(total_loss)
+        # total_loss = np.average(total_loss)
+        total_loss = total_loss / len(vali_loader.dataset)
 
-        preds = torch.cat(preds, 0)
+        preds = torch.cat(preds, 0).squeeze(1)
         trues = torch.cat(trues, 0)
-        probs = torch.nn.functional.softmax(
-            preds
-        )  # (total_samples, num_classes) est. prob. for each class and sample
-        trues_onehot = (
-            torch.nn.functional.one_hot(
-                trues.reshape(
-                    -1,
-                ).to(torch.long),
-                num_classes=self.args['num_class'],
-            )
-            .float()
-            .cpu()
-            .numpy()
-        )
+        probs = torch.nn.functional.sigmoid(preds)  # (total_samples, num_classes) est. prob. for each class and sample
+        # probs = torch.nn.functional.softmax(preds)  # (total_samples, num_classes) est. prob. for each class and sample
+        trues_onehot = trues.float().cpu().numpy()
+        # trues_onehot = (
+        #     torch.nn.functional.one_hot(
+        #         trues.reshape(
+        #             -1,
+        #         ).to(torch.long),
+        #         num_classes=self.args['num_class'],
+        #     )
+        #     .float()
+        #     .cpu()
+        #     .numpy()
+        # )
+    
         # print(trues_onehot.shape)
-        predictions = (
-            torch.argmax(probs, dim=1).cpu().numpy()
-        )  # (total_samples,) int class index for each sample
+        predictions = torch.argmax(probs, dim=1).cpu().numpy()
+        # predictions = (probs>0.5).float().cpu().numpy()
+        
         probs = probs.cpu().numpy()
-        trues = trues.flatten().cpu().numpy()
-        # accuracy = cal_accuracy(predictions, trues)
+        trues = torch.argmax(trues, dim=1).cpu().numpy()
+        # trues = trues.cpu().numpy()
 
         f1 = f1_score(trues, predictions, average="binary")
         auroc = roc_auc_score(trues_onehot, probs)
@@ -135,13 +150,13 @@ class Exp_Classification(Exp_Basic):
     def train(self, setting):
         train_data, train_loader = self._get_data(flag="TRAIN")
         vali_data, vali_loader = self._get_data(flag="VAL")
-        test_data, test_loader = self._get_data(flag="TEST")
+        # test_data, test_loader = self._get_data(flag="TEST")
         print(train_data.X.shape)
         print(train_data.y.shape)
         print(vali_data.X.shape)
         print(vali_data.y.shape)
-        print(test_data.X.shape)
-        print(test_data.y.shape)
+        # print(test_data.X.shape)
+        # print(test_data.y.shape)
 
         path = (
             "./checkpoints/"
@@ -166,10 +181,12 @@ class Exp_Classification(Exp_Basic):
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
+        scheduler = self._select_scheduler(model_optim)
 
         for epoch in range(self.args['train_epochs']):
             iter_count = 0
-            train_loss = []
+            # train_loss = []
+            train_loss = 0.0
 
             self.model.train()
             epoch_time = time.time()
@@ -182,10 +199,14 @@ class Exp_Classification(Exp_Basic):
                 batch_x = batch_x.float().to(self.device)
                 padding_mask = padding_mask.float().to(self.device)
                 label = label.to(self.device)
-
+                label = label.squeeze(1).float()
+                
                 outputs = self.model(batch_x, padding_mask, None, None)
-                loss = criterion(outputs, label.long())
-                train_loss.append(loss.item())
+                loss = criterion(outputs, label)
+                # loss = criterion(outputs[:,1], label.float())
+                # loss = criterion(outputs, label.long())
+                # train_loss.append(loss.item())
+                train_loss += loss.item() * batch_x.size(0)
 
                 # if (i + 1) % 100 == 0:
                 #     print(
@@ -213,11 +234,15 @@ class Exp_Classification(Exp_Basic):
             self.swa_model.update_parameters(self.model)
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
-            train_loss = np.average(train_loss)
+            train_loss = train_loss / len(train_loader.dataset)
+            
             print("[Validation Step]")
             vali_loss, val_metrics_dict = self.vali(vali_data, vali_loader, criterion)
-            print("[Test Step]")
-            test_loss, test_metrics_dict = self.vali(test_data, test_loader, criterion)
+            
+            scheduler.step(vali_loss)
+            
+            # print("[Test Step]")
+            # test_loss, test_metrics_dict = self.vali(test_data, test_loader, criterion)
 
             print(
                 f"Epoch: {epoch + 1}, Steps: {train_steps}, | Train Loss: {train_loss:.5f}\n"
@@ -230,15 +255,15 @@ class Exp_Classification(Exp_Basic):
                 f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
                 f"MCC: {val_metrics_dict['MCC']:.5f}, "
                 f"CPI: {val_metrics_dict['CPI']:.5f}\n"
-                f"Test results --- Loss: {test_loss:.5f}, "
-                f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
-                f"Precision: {test_metrics_dict['Precision']:.5f}, "
-                f"Recall: {test_metrics_dict['Recall']:.5f} "
-                f"AUPRC: {test_metrics_dict['AUPRC']:.5f}, "
-                f"F1: {test_metrics_dict['F1']:.5f}, "
-                f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-                f"MCC: {test_metrics_dict['MCC']:.5f}, "
-                f"CPI: {test_metrics_dict['CPI']:.5f}\n"
+                # f"Test results --- Loss: {test_loss:.5f}, "
+                # f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
+                # f"Precision: {test_metrics_dict['Precision']:.5f}, "
+                # f"Recall: {test_metrics_dict['Recall']:.5f} "
+                # f"AUPRC: {test_metrics_dict['AUPRC']:.5f}, "
+                # f"F1: {test_metrics_dict['F1']:.5f}, "
+                # f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
+                # f"MCC: {test_metrics_dict['MCC']:.5f}, "
+                # f"CPI: {test_metrics_dict['CPI']:.5f}\n"
             )
             early_stopping(
                 # -val_metrics_dict["CPI"],
@@ -262,7 +287,7 @@ class Exp_Classification(Exp_Basic):
 
     def test(self, setting, test=0):
         vali_data, vali_loader = self._get_data(flag="VAL")
-        test_data, test_loader = self._get_data(flag="TEST")
+        # test_data, test_loader = self._get_data(flag="TEST")
         if test:
             print("loading model")
             path = (
@@ -286,7 +311,7 @@ class Exp_Classification(Exp_Basic):
 
         criterion = self._select_criterion()
         vali_loss, val_metrics_dict = self.vali(vali_data, vali_loader, criterion)
-        test_loss, test_metrics_dict = self.vali(test_data, test_loader, criterion)
+        # test_loss, test_metrics_dict = self.vali(test_data, test_loader, criterion)
 
         # result save
         folder_path = (
@@ -311,15 +336,15 @@ class Exp_Classification(Exp_Basic):
             f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
             f"MCC: {val_metrics_dict['MCC']:.5f}, "
             f"CPI: {val_metrics_dict['CPI']:.5f}\n"
-            f"Test results --- Loss: {test_loss:.5f}, "
-            f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
-            f"Precision: {test_metrics_dict['Precision']:.5f}, "
-            f"Recall: {test_metrics_dict['Recall']:.5f}, "
-            f"AUPRC: {test_metrics_dict['AUPRC']:.5f} ,"
-            f"F1: {test_metrics_dict['F1']:.5f}, "
-            f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-            f"MCC: {test_metrics_dict['MCC']:.5f}, "
-            f"CPI: {test_metrics_dict['CPI']:.5f}\n"
+            # f"Test results --- Loss: {test_loss:.5f}, "
+            # f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
+            # f"Precision: {test_metrics_dict['Precision']:.5f}, "
+            # f"Recall: {test_metrics_dict['Recall']:.5f}, "
+            # f"AUPRC: {test_metrics_dict['AUPRC']:.5f} ,"
+            # f"F1: {test_metrics_dict['F1']:.5f}, "
+            # f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
+            # f"MCC: {test_metrics_dict['MCC']:.5f}, "
+            # f"CPI: {test_metrics_dict['CPI']:.5f}\n"
         )
         file_name = "result_classification.txt"
         f = open(os.path.join(folder_path, file_name), "a")
@@ -334,15 +359,15 @@ class Exp_Classification(Exp_Basic):
             f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
             f"MCC: {val_metrics_dict['MCC']:.5f}, "
             f"CPI: {val_metrics_dict['CPI']:.5f}\n"
-            f"Test results --- Loss: {test_loss:.5f}, "
-            f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
-            f"Precision: {test_metrics_dict['Precision']:.5f}, "
-            f"Recall: {test_metrics_dict['Recall']:.5f}, "
-            f"AUPRC: {test_metrics_dict['AUPRC']:.5f} ,"
-            f"F1: {test_metrics_dict['F1']:.5f}, "
-            f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-            f"MCC: {test_metrics_dict['MCC']:.5f}, "
-            f"CPI: {test_metrics_dict['CPI']:.5f}\n"
+            # f"Test results --- Loss: {test_loss:.5f}, "
+            # f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
+            # f"Precision: {test_metrics_dict['Precision']:.5f}, "
+            # f"Recall: {test_metrics_dict['Recall']:.5f}, "
+            # f"AUPRC: {test_metrics_dict['AUPRC']:.5f} ,"
+            # f"F1: {test_metrics_dict['F1']:.5f}, "
+            # f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
+            # f"MCC: {test_metrics_dict['MCC']:.5f}, "
+            # f"CPI: {test_metrics_dict['CPI']:.5f}\n"
         )
         f.write("\n")
         f.write("\n")

@@ -66,9 +66,7 @@ class Model(nn.Module):
             self.act = F.gelu
             self.dropout = nn.Dropout(configs['dropout'])
             self.projection = nn.Linear(
-                configs['d_model']
-                * sum(patch_num_list)
-                * (1 if not self.single_channel else configs['enc_in']),
+                configs['d_model']* sum(patch_num_list)* (1 if not self.single_channel else configs['enc_in']),
                 configs['num_class'],
             )
 
