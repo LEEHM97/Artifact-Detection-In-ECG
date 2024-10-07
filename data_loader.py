@@ -29,6 +29,11 @@ class KMediconLoader(Dataset):
         self.X, self.y = self.load_ptbxl(self.ecg, self.label, flag=flag)
 
         self.X = self.X.reshape(-1,2500,12)
+        
+        ## Down Sampling
+        # downsample_factor = 4
+        # downsampled_array = self.X.reshape(self.X.shape[0], -1, downsample_factor).mean(axis=2)
+        # self.X = downsampled_array
 
         # pre_process
         self.X = normalize_batch_ts(self.X)
@@ -162,6 +167,7 @@ def normalize_ts(ts):
         ts (numpy.ndarray): The processed time-series.
     """
     scaler = StandardScaler()
+    # ts = ts.reshape(-1,1)
     scaler.fit(ts)
     ts = scaler.transform(ts)
     return ts    
