@@ -2,10 +2,11 @@ CONFIG = {
     # Basic config
     'seed': 41,
     'is_training': 1,
-    'model_id': 'T#27',
+    # 'model_id': 'T#27',
+    'model_id': 'JT27_4',
     'task_name': 'classification',
     'model': 'Medformer',
-    'monitor': 'vali_loss',
+    'monitor': 'vali_cpi',
     # 'monitor': 'F1',
     
     # Data loader
@@ -42,6 +43,7 @@ CONFIG = {
     'no_inter_attn': False,
     # 'sampling_rate': 125,
     'patch_len_list': '2,4,8,8,16,16,16,16,32,32,32,32,32,32,32,32',
+    # 'patch_len_list': '2,4,8,8,16,16,16,32,32,32,32,32',
     'single_channel': False,
     'augmentations': 'jitter0.2,scale0.2,drop0.5',
     # 'augmentations': 'jitter0.2,scale0.2,mask0.5',
@@ -52,8 +54,8 @@ CONFIG = {
     'num_workers': 0,
     'itr': 1,
     'train_epochs': 100,
-    'batch_size': 8,
-    'patience': 5,
+    'batch_size': 4,
+    'patience': 10,
     # 'learning_rate': 1e-3,
     'learning_rate': 1e-4,      # default 1e-4,
     'des': 'Exp',

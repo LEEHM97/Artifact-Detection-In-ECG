@@ -282,7 +282,8 @@ class Exp_Classification(Exp_Basic):
                 f"CPI: {test_metrics_dict['CPI']:.5f}\n"
             )
             early_stopping(
-                vali_loss,
+                # vali_loss,
+                val_metrics_dict['CPI'],
                 # -val_metrics_dict["F1"],
                 self.swa_model if self.swa else self.model,
                 path,
