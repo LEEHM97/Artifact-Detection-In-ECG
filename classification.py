@@ -59,12 +59,13 @@ class Exp_Classification(Exp_Basic):
         return data_set, data_loader
 
     def _select_optimizer(self):
-        # model_optim = optim.Adam(self.model.parameters(), lr=self.args['learning_rate'])
-        model_optim = optim.AdamW(self.model.parameters(), lr=self.args['learning_rate'], weight_decay=self.args['weight_decay'])
+        model_optim = optim.Adam(self.model.parameters(), lr=self.args['learning_rate'])
+        # model_optim = optim.AdamW(self.model.parameters(), lr=self.args['learning_rate'], weight_decay=self.args['weight_decay'])
         return model_optim
 
     def _select_criterion(self):
         criterion = nn.CrossEntropyLoss()
+        # criterion = nn.MultiLabelSoftMarginLoss()
         # criterion = nn.BCEWithLogitsLoss()
         return criterion
 
@@ -90,7 +91,7 @@ class Exp_Classification(Exp_Basic):
                 pred = outputs.detach().cpu()
 
                 loss = criterion(pred, label.long().cpu())
-                # loss = criterion(pred, label.float().cpu())
+                # loss = criterion(pred[:,1], label.float().cpu())
                 total_loss.append(loss)
 
                 preds.append(outputs.detach())
@@ -193,13 +194,13 @@ class Exp_Classification(Exp_Basic):
         criterion = self._select_criterion()
         
         # OneCycleLR 스케줄러 초기화
-        # scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        #     model_optim,
-        #     # max_lr=self.args['learning_rate'],  # 초기 학습률과 동일하게 설정
-        #     max_lr=self.args['max_lr'],  # init_lr의 2 ~ 10배
-        #     total_steps=self.args['train_epochs'] * train_steps,
-        #     # optional parameters can be set here (e.g., pct_start, anneal_strategy)
-        # )
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            model_optim,
+            # max_lr=self.args['learning_rate'],  # 초기 학습률과 동일하게 설정
+            max_lr=self.args['max_lr'],  # init_lr의 2 ~ 10배
+            total_steps=self.args['train_epochs'] * train_steps,
+            # optional parameters can be set here (e.g., pct_start, anneal_strategy)
+        )
 
         for epoch in range(self.args['train_epochs']):
             iter_count = 0
@@ -224,7 +225,7 @@ class Exp_Classification(Exp_Basic):
                 # print(f">> outputs.shape: {outputs.shape}")
 
                 loss = criterion(outputs, label.long())
-                # loss = criterion(outputs, label.float())
+                # loss = criterion(outputs[:,1], label.float())
                 train_loss.append(loss.item())
 
                 # if (i + 1) % 100 == 0:
@@ -249,7 +250,7 @@ class Exp_Classification(Exp_Basic):
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=4.0)
                 model_optim.step()
-                # scheduler.step()  # 스케줄러 업데이트
+                scheduler.step()  # 스케줄러 업데이트
 
             self.swa_model.update_parameters(self.model)
 
@@ -283,6 +284,8 @@ class Exp_Classification(Exp_Basic):
             )
             early_stopping(
                 vali_loss,
+                # -val_metrics_dict["CPI"],
+                # -val_metrics_dict["MCC"],
                 # -val_metrics_dict["F1"],
                 self.swa_model if self.swa else self.model,
                 path,

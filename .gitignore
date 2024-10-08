@@ -166,3 +166,5 @@ test*
 checkpoints
 results/
 *.xlsx
+*.pptx
+*.jpg

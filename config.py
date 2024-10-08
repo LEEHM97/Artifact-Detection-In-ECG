@@ -2,14 +2,19 @@ CONFIG = {
     # Basic config
     'seed': 41,
     'is_training': 1,
-    'model_id': 'K-Medicon',
+    'model_id': 'T#08',
     'task_name': 'classification',
+    # 'task_name': 'anomaly_detection'cl,
     'model': 'Medformer',
     'monitor': 'vali_loss',
+    # 'monitor': 'F1',
+    # 'monitor': 'mcc',
+    # 'monitor': 'CPI',
     
     # Data loader
     'data': 'K-Medicon',
-    'root_path': './dataset/KMedicon/',
+    'root_path': './dataset/',
+    'signal_hz': 250, # 500,
     # 'features': 'M',    # options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate"
     # 'freq': 's',
     
@@ -32,28 +37,34 @@ CONFIG = {
     # 'moving_avg': 25,
     'factor': 1,
     # 'distil': True,
-    'dropout': 0.1,
+    'dropout': 0.1,    # default 0.1
     'embed': 'timeF',
-    'activation': 'gelu',
+    'activation': 'gelu',   # default 'gelu',
     'output_attention': False,
     'no_inter_attn': False,
     # 'sampling_rate': 125,
     'patch_len_list': '2,4,8,8,16,16,16,16,32,32,32,32,32,32,32,32',
     'single_channel': False,
     'augmentations': 'jitter0.2,scale0.2,drop0.5',
+    # 'augmentations': 'jitter0.2,scale0.2,mask0.5',
+    # 'augmentations': 'jitter0.2,scale0.2,drop0.5,randomerasing0.2,gaussian0.00.02',
+    # 'num_class': 1,
 
     # Optimization
     'num_workers': 0,
     'itr': 1,
     'train_epochs': 100,
-    'batch_size': 4,
+    'batch_size': 8,
     'patience': 10,
-    'learning_rate': 1e-4,
+    'learning_rate': 1e-4,      # default
     'des': 'Exp',
-    'loss': 'MSE',
-    'lradj': 'type1',
+    'loss': 'CrossEntropy',   
+    # 'lradj': 'type1',
     'swa': True,
-    
+    'scheduler': 'OneCycleLR',
+    'max_lr': 1e-3,
+    # 'weight_decay': 1e-4,
+
     # GPU
     'use_gpu': True,
     'gpu': 0,
@@ -63,5 +74,4 @@ CONFIG = {
     # de-stationary projector params
     # 'p_hidden_dims': [128, 128],
     # 'p_hidden_layers': 2,
-    
 }

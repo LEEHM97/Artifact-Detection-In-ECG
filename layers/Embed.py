@@ -40,7 +40,8 @@ class CrossChannelTokenEmbedding(nn.Module):
             kernel_size=(c_in, l_patch),
             stride=(1, stride),
             padding=0,
-            padding_mode="circular",
+            padding_mode="circular",  # default
+            # padding_mode="zeros",
             bias=False,
         )
         for m in self.modules():

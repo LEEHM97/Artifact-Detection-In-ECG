@@ -8,11 +8,11 @@ from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-
 class KMediconLoader(Dataset):
     def __init__(self, root_path, flag=None):
         # features.h5 : 500 Hz Original sampling rate file
         # processed_features.h5 : 250 Hz Resampled sampling rate file
+        # data_file = os.path.join(root_path, "features.h5")
         data_file = os.path.join(root_path, "processed_features.h5")
         with h5py.File(data_file, 'r') as f:
             ecg = f['ecg'][:]
@@ -35,7 +35,8 @@ class KMediconLoader(Dataset):
 
         self.X, self.y = self.load_ecgh5(self.ecg, self.label, flag=flag)
 
-        self.X = self.X.reshape(-1,2500,12)
+        self.X = self.X.reshape(-1, 2500, 12)
+        # self.X = self.X.reshape(-1, 5000, 12)
 
         # pre_process
         self.X = normalize_batch_ts(self.X)
@@ -149,7 +150,8 @@ class PublicTest(Dataset):
         
         self.X = ecg
         self.y = label
-        self.X = self.X.reshape(-1,2500,12)
+        self.X = self.X.reshape(-1, 2500, 12)
+        # self.X = self.X.reshape(-1, 5000, 12)
         # pre_process
         self.X = normalize_batch_ts(self.X)
         # self.X = bandpass_filter_func(self.X, fs=250, lowcut=0.5, highcut=45)
