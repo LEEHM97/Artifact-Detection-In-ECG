@@ -26,6 +26,8 @@ share/python-wheels/
 *.egg
 MANIFEST
 *.h5
+*.xlsx
+C:/Git/Artifact-Detection-In-ECG/EDA/cpi_score.ipynb
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
