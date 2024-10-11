@@ -9,6 +9,7 @@ import time
 import warnings
 import numpy as np
 import random
+import h5py
 from torch.utils.data import DataLoader
 from data_loader import PublicTest
 
@@ -47,12 +48,7 @@ class Exp_Classification(Exp_Basic):
         if self.args['use_multi_gpu'] and self.args['use_gpu']:
             model = nn.DataParallel(model, device_ids=self.args['device_ids'])
         return model
-
-    def _get_data(self, flag):
-        random.seed(self.args['seed'])
-        data_set, data_loader = data_provider(self.args, flag)
-        return data_set, data_loader
-
+            
     def _select_optimizer(self):
         model_optim = optim.Adam(self.model.parameters(), lr=self.args['learning_rate'])
         return model_optim
@@ -216,9 +212,11 @@ class Exp_Classification(Exp_Basic):
     
 
     def train(self, setting):
-        train_data, train_loader = self._get_data(flag="TRAIN")
-        vali_data, vali_loader = self._get_data(flag="VAL")
+        # train_data, train_loader = self._get_data(flag="TRAIN")
+        # vali_data, vali_loader = self._get_data(flag="VAL")
         # test_data, test_loader = self._get_data(flag="TEST")
+        
+        
         print(train_data.X.shape)
         print(train_data.y.shape)
         print(vali_data.X.shape)
@@ -295,15 +293,6 @@ class Exp_Classification(Exp_Basic):
                 f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
                 f"MCC: {val_metrics_dict['MCC']:.5f}, "
                 f"CPI: {val_metrics_dict['CPI']:.5f}\n"
-                # f"Test results --- Loss: {test_loss:.5f}, "
-                # f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
-                # f"Precision: {test_metrics_dict['Precision']:.5f}, "
-                # f"Recall: {test_metrics_dict['Recall']:.5f} "
-                # f"AUPRC: {test_metrics_dict['AUPRC']:.5f}, "
-                # f"F1: {test_metrics_dict['F1']:.5f}, "
-                # f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-                # f"MCC: {test_metrics_dict['MCC']:.5f}, "
-                # f"CPI: {test_metrics_dict['CPI']:.5f}\n"
             )
             early_stopping(
                 -val_metrics_dict["CPI"],
