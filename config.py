@@ -39,8 +39,8 @@ CONFIG = {
     'no_inter_attn': False,
     # 'sampling_rate': 125,
     # 16 3번 32 5번
-    'patch_len_list': '2,4,8,8,16,16,16,16,32,32,32,32,32,32,32,32',
-    # 'patch_len_list': '2,4,8,8,16,16,16,32,32,32,32,32',
+    # 'patch_len_list': '2,4,8,8,16,16,16,16,32,32,32,32,32,32,32,32',
+    'patch_len_list': '2,4,8,8,16,16,16,32,32,32,32,32',
     'single_channel': False,
     'augmentations': 'jitter0.2,scale0.2,drop0.5',
 
