@@ -2,14 +2,13 @@ CONFIG = {
     # Basic config
     'seed': 41,
     'is_training': 1,
-    'model_id': 'K-Medicon',
+    'model_id': 'JT08_2',
     'task_name': 'classification',
     'model': 'Medformer',
-    'monitor': 'vali_loss',
+    'monitor': 'vali_cpi',
     
     # Data loader
     'data': 'K-Medicon',
-    # 'root_path': './dataset/SingleLead/',
     'root_path': './dataset/',
     # 'features': 'M',    # options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate"
     # 'freq': 's',
@@ -39,13 +38,15 @@ CONFIG = {
     'output_attention': False,
     'no_inter_attn': False,
     # 'sampling_rate': 125,
-    'patch_len_list': '2,4,8,8,16,16,16,16,32,32,32,32,32,32,32,32',
-    'single_channel': True,
+    # 'patch_len_list': '2,4,8,8,16,16,16,16,32,32,32,32,32,32,32,32',
+    'patch_len_list': '2,4,8,8,16,16,16,32,32,32,32,32',
+    # 'patch_len_list': '2,2,2,4,4,4,16,16,16,16,32,32,32,32,32',
+    'single_channel': False,
     'augmentations': 'jitter0.2,scale0.2,drop0.5',
 
     # Optimization
     'num_workers': 0,
-    'itr': 1,
+    'itr': 5,
     'train_epochs': 100,
     'batch_size': 4,
     'patience': 10,
@@ -53,6 +54,7 @@ CONFIG = {
     'des': 'Exp',
     'loss': 'MSE',
     'lradj': 'type1',
+    # 'max_lr': 1e-3,
     'swa': True,
     
     # GPU

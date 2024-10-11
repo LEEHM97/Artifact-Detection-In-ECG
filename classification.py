@@ -31,7 +31,7 @@ class Exp_Classification(Exp_Basic):
     def _build_model(self):
         # model input depends on data
         # train_data, train_loader = self._get_data(flag='TRAIN')
-        test_data, test_loader = self._get_data(flag="TEST")
+        test_data, test_loader = self._get_data(flag="TRAIN")
         self.args['seq_len'] = test_data.max_seq_len  # redefine seq_len
         self.args['pred_len'] = 0
         # self.args.enc_in = train_data.feature_df.shape[1]
@@ -138,13 +138,13 @@ class Exp_Classification(Exp_Basic):
     def train(self, setting):
         train_data, train_loader = self._get_data(flag="TRAIN")
         vali_data, vali_loader = self._get_data(flag="VAL")
-        test_data, test_loader = self._get_data(flag="TEST")
+        # test_data, test_loader = self._get_data(flag="TEST")
         print(train_data.X.shape)
         print(train_data.y.shape)
         print(vali_data.X.shape)
         print(vali_data.y.shape)
-        print(test_data.X.shape)
-        print(test_data.y.shape)
+        # print(test_data.X.shape)
+        # print(test_data.y.shape)
 
         path = (
             "./checkpoints/"
@@ -169,6 +169,15 @@ class Exp_Classification(Exp_Basic):
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
+        
+        # OneCycleLR 스케줄러 초기화
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            model_optim,
+            # max_lr=self.args['learning_rate'],  # 초기 학습률과 동일하게 설정
+            # max_lr=self.args['max_lr'],  # init_lr의 2 ~ 10배
+            # total_steps=self.args['train_epochs'] * train_steps,
+            # optional parameters can be set here (e.g., pct_start, anneal_strategy)
+        )
 
         for epoch in range(self.args['train_epochs']):
             iter_count = 0
@@ -213,6 +222,7 @@ class Exp_Classification(Exp_Basic):
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=4.0)
                 model_optim.step()
+                scheduler.step(np.average(train_loss))  # 스케줄러 업데이트
 
             self.swa_model.update_parameters(self.model)
 
@@ -220,8 +230,8 @@ class Exp_Classification(Exp_Basic):
             train_loss = np.average(train_loss)
             print("[Validation Step]")
             vali_loss, val_metrics_dict = self.vali(vali_data, vali_loader, criterion)
-            print("[Test Step]")
-            test_loss, test_metrics_dict = self.vali(test_data, test_loader, criterion)
+            # print("[Test Step]")
+            # test_loss, test_metrics_dict = self.vali(test_data, test_loader, criterion)
 
             print(
                 f"Epoch: {epoch + 1}, Steps: {train_steps}, | Train Loss: {train_loss:.5f}\n"
@@ -234,19 +244,19 @@ class Exp_Classification(Exp_Basic):
                 f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
                 f"MCC: {val_metrics_dict['MCC']:.5f}, "
                 f"CPI: {val_metrics_dict['CPI']:.5f}\n"
-                f"Test results --- Loss: {test_loss:.5f}, "
-                f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
-                f"Precision: {test_metrics_dict['Precision']:.5f}, "
-                f"Recall: {test_metrics_dict['Recall']:.5f} "
-                f"AUPRC: {test_metrics_dict['AUPRC']:.5f}, "
-                f"F1: {test_metrics_dict['F1']:.5f}, "
-                f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-                f"MCC: {test_metrics_dict['MCC']:.5f}, "
-                f"CPI: {test_metrics_dict['CPI']:.5f}\n"
+                # f"Test results --- Loss: {test_loss:.5f}, "
+                # f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
+                # f"Precision: {test_metrics_dict['Precision']:.5f}, "
+                # f"Recall: {test_metrics_dict['Recall']:.5f} "
+                # f"AUPRC: {test_metrics_dict['AUPRC']:.5f}, "
+                # f"F1: {test_metrics_dict['F1']:.5f}, "
+                # f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
+                # f"MCC: {test_metrics_dict['MCC']:.5f}, "
+                # f"CPI: {test_metrics_dict['CPI']:.5f}\n"
             )
             early_stopping(
-                # -val_metrics_dict["CPI"],
-                vali_loss,
+                -val_metrics_dict["CPI"],
+                # vali_loss,
                 self.swa_model if self.swa else self.model,
                 path,
             )
@@ -266,7 +276,7 @@ class Exp_Classification(Exp_Basic):
 
     def test(self, setting, test=0):
         vali_data, vali_loader = self._get_data(flag="VAL")
-        test_data, test_loader = self._get_data(flag="TEST")
+        # test_data, test_loader = self._get_data(flag="TEST")
         if test:
             print("loading model")
             path = (
@@ -290,7 +300,7 @@ class Exp_Classification(Exp_Basic):
 
         criterion = self._select_criterion()
         vali_loss, val_metrics_dict = self.vali(vali_data, vali_loader, criterion)
-        test_loss, test_metrics_dict = self.vali(test_data, test_loader, criterion)
+        # test_loss, test_metrics_dict = self.vali(test_data, test_loader, criterion)
 
         # result save
         folder_path = (
@@ -315,15 +325,15 @@ class Exp_Classification(Exp_Basic):
             f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
             f"MCC: {val_metrics_dict['MCC']:.5f}, "
             f"CPI: {val_metrics_dict['CPI']:.5f}\n"
-            f"Test results --- Loss: {test_loss:.5f}, "
-            f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
-            f"Precision: {test_metrics_dict['Precision']:.5f}, "
-            f"Recall: {test_metrics_dict['Recall']:.5f}, "
-            f"AUPRC: {test_metrics_dict['AUPRC']:.5f} ,"
-            f"F1: {test_metrics_dict['F1']:.5f}, "
-            f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-            f"MCC: {test_metrics_dict['MCC']:.5f}, "
-            f"CPI: {test_metrics_dict['CPI']:.5f}\n"
+            # f"Test results --- Loss: {test_loss:.5f}, "
+            # f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
+            # f"Precision: {test_metrics_dict['Precision']:.5f}, "
+            # f"Recall: {test_metrics_dict['Recall']:.5f}, "
+            # f"AUPRC: {test_metrics_dict['AUPRC']:.5f} ,"
+            # f"F1: {test_metrics_dict['F1']:.5f}, "
+            # f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
+            # f"MCC: {test_metrics_dict['MCC']:.5f}, "
+            # f"CPI: {test_metrics_dict['CPI']:.5f}\n"
         )
         file_name = "result_classification.txt"
         f = open(os.path.join(folder_path, file_name), "a")
@@ -338,15 +348,15 @@ class Exp_Classification(Exp_Basic):
             f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
             f"MCC: {val_metrics_dict['MCC']:.5f}, "
             f"CPI: {val_metrics_dict['CPI']:.5f}\n"
-            f"Test results --- Loss: {test_loss:.5f}, "
-            f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
-            f"Precision: {test_metrics_dict['Precision']:.5f}, "
-            f"Recall: {test_metrics_dict['Recall']:.5f}, "
-            f"AUPRC: {test_metrics_dict['AUPRC']:.5f} ,"
-            f"F1: {test_metrics_dict['F1']:.5f}, "
-            f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-            f"MCC: {test_metrics_dict['MCC']:.5f}, "
-            f"CPI: {test_metrics_dict['CPI']:.5f}\n"
+            # f"Test results --- Loss: {test_loss:.5f}, "
+            # f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
+            # f"Precision: {test_metrics_dict['Precision']:.5f}, "
+            # f"Recall: {test_metrics_dict['Recall']:.5f}, "
+            # f"AUPRC: {test_metrics_dict['AUPRC']:.5f} ,"
+            # f"F1: {test_metrics_dict['F1']:.5f}, "
+            # f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
+            # f"MCC: {test_metrics_dict['MCC']:.5f}, "
+            # f"CPI: {test_metrics_dict['CPI']:.5f}\n"
         )
         f.write("\n")
         f.write("\n")

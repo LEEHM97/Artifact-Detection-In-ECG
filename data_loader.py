@@ -11,8 +11,8 @@ from sklearn.preprocessing import StandardScaler
 
 class KMediconLoader(Dataset):
     def __init__(self, root_path, flag=None):
-        with h5py.File(os.path.join(root_path, "SingleLead/mean_normalized_sigle_lead_processed_features.h5"), 'r') as f:
-        # with h5py.File(os.path.join(root_path, "processed_features.h5"), 'r') as f:
+        # with h5py.File(os.path.join(root_path, "SingleLead/mean_normalized_sigle_lead_processed_features.h5"), 'r') as f:
+        with h5py.File(os.path.join(root_path, "processed_features.h5"), 'r') as f:
             ecg = f['ecg'][:]
             label = f['label'][:]
         
@@ -20,21 +20,25 @@ class KMediconLoader(Dataset):
         self.label = label
         self.root_path = root_path
 
-        a, b = 0.6, 0.8
+        a, b = 0.8, 1
 
         # list of IDs for training, val, and test sets
-        self.train_ids, self.val_ids, self.test_ids = self.load_train_val_test_list(
+        # self.train_ids, self.val_ids, self.test_ids = self.load_train_val_test_list(
+        #     self.label, a, b
+        # )
+        
+        self.train_ids, self.val_ids = self.load_train_val_test_list(
             self.label, a, b
         )
 
         self.X, self.y = self.load_ptbxl(self.ecg, self.label, flag=flag)
 
-        # self.X = self.X.reshape(-1,2500,12)
+        self.X = self.X.reshape(-1,2500,12)
         
-        ## Down Sampling
-        downsample_factor = 4
-        downsampled_array = self.X.reshape(self.X.shape[0], -1, downsample_factor).mean(axis=2)
-        self.X = downsampled_array
+        # ## Down Sampling
+        # downsample_factor = 4
+        # downsampled_array = self.X.reshape(self.X.shape[0], -1, downsample_factor).mean(axis=2)
+        # self.X = downsampled_array
 
 
         # pre_process
@@ -67,15 +71,20 @@ class KMediconLoader(Dataset):
             + arti_list[: int(a * len(arti_list))]
         )
         val_ids = (
-            norm_list[int(a * len(norm_list)) : int(b * len(norm_list))]
-            + arti_list[int(a * len(arti_list)) : int(b * len(arti_list))]
+            norm_list[int(a * len(norm_list)) : ]
+            + arti_list[int(a * len(arti_list)) : ]
         )
-        test_ids = (
-            norm_list[int(b * len(norm_list)) :]
-            + arti_list[int(b * len(arti_list)) :]
-        )
+        # val_ids = (
+        #     norm_list[int(a * len(norm_list)) : int(b * len(norm_list))]
+        #     + arti_list[int(a * len(arti_list)) : int(b * len(arti_list))]
+        # )
+        # test_ids = (
+        #     norm_list[int(b * len(norm_list)) :]
+        #     + arti_list[int(b * len(arti_list)) :]
+        # )
 
-        return train_ids, val_ids, test_ids
+        # return train_ids, val_ids, test_ids
+        return train_ids, val_ids
 
     def load_ptbxl(self, ecg, label, flag=None):
         """
@@ -167,7 +176,7 @@ def normalize_ts(ts):
         ts (numpy.ndarray): The processed time-series.
     """
     scaler = StandardScaler()
-    ts = ts.reshape(-1,1)
+    # ts = ts.reshape(-1,1)
     scaler.fit(ts)
     ts = scaler.transform(ts)
     return ts    
