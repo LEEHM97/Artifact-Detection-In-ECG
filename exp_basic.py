@@ -4,7 +4,7 @@ import Medformer
 
 
 class Exp_Basic(object):
-    def __init__(self, args):
+    def __init__(self, args, train_data, train_loader, vali_data, vali_loader, test_data, test_loader):
         self.args = args
         self.model_dict = {
             # "Autoformer": Autoformer,
@@ -21,6 +21,8 @@ class Exp_Basic(object):
         }
         self.device = self._acquire_device()
         self.model = self._build_model().to(self.device)
+        
+
 
     def _build_model(self):
         raise NotImplementedError

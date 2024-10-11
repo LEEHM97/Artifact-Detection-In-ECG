@@ -1,6 +1,6 @@
 CONFIG = {
     # Basic config
-    'seed': 41,
+    'seed': 44,
     'is_training': 1,
     'model_id': 'HM08',
     'task_name': 'classification',
@@ -46,7 +46,7 @@ CONFIG = {
 
     # Optimization
     'num_workers': 0,
-    'itr': 5,
+    'itr': 1,
     'train_epochs': 100,
     'batch_size': 4,
     'patience': 5,

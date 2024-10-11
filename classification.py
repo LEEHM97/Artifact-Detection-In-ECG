@@ -1,5 +1,3 @@
-from data_factory import data_provider
-from exp_basic import Exp_Basic
 from utils import EarlyStopping, mcc_score, FocalLoss, CosineAnnealingWarmUpRestarts
 import torch
 import torch.nn as nn
@@ -8,10 +6,7 @@ import os
 import time
 import warnings
 import numpy as np
-import random
-import h5py
-from torch.utils.data import DataLoader
-from data_loader import PublicTest
+import Medformer
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
@@ -24,26 +19,36 @@ from sklearn.metrics import average_precision_score
 warnings.filterwarnings("ignore")
 
 
-class Exp_Classification(Exp_Basic):
-    def __init__(self, args):
-        super().__init__(args)
+class Exp_Classification():
+    def __init__(self, args, train_data, train_loader, vali_data, vali_loader, test_data, test_loader):
+        # super().__init__(args)
+        self.args = args
+        
+        self.train_data = train_data
+        self.train_loader = train_loader
+        self.vali_data = vali_data
+        self.vali_loader = vali_loader
+        self.test_data = test_data
+        self.test_loader = test_loader
+        
+        self.device = self._acquire_device()
+        self.model = self._build_model().to(self.device)
 
         self.swa_model = optim.swa_utils.AveragedModel(self.model)
         self.swa = args['swa']
-
+        
     def _build_model(self):
         # model input depends on data
         # train_data, train_loader = self._get_data(flag='TRAIN')
-        test_data, test_loader = self._get_data(flag="VAL")
-        self.args['seq_len'] = test_data.max_seq_len  # redefine seq_len
+        self.args['seq_len'] = self.test_data.max_seq_len  # redefine seq_len
         self.args['pred_len'] = 0
         # self.args.enc_in = train_data.feature_df.shape[1]
         # self.args.num_class = len(train_data.class_names)
-        self.args['enc_in'] = test_data.X.shape[2]  # redefine enc_in
-        self.args['num_class'] = len(np.unique(test_data.y))
+        self.args['enc_in'] = self.test_data.X.shape[2]  # redefine enc_in
+        self.args['num_class'] = len(np.unique(self.test_data.y))
         # model init
         model = (
-            self.model_dict[self.args['model']].Model(self.args).float()
+            Medformer.Model(self.args).float()
         )  # pass args to model
         if self.args['use_multi_gpu'] and self.args['use_gpu']:
             model = nn.DataParallel(model, device_ids=self.args['device_ids'])
@@ -68,6 +73,18 @@ class Exp_Classification(Exp_Basic):
         # total_steps=self.args['train_epochs'] * steps,)
             
         return scheduler
+    
+    def _acquire_device(self):
+        if self.args['use_gpu']:
+            os.environ["CUDA_VISIBLE_DEVICES"] = (
+                str(self.args['gpu']) if not self.args['use_multi_gpu'] else self.args['devices']
+            )
+            device = torch.device("cuda:{}".format(self.args['gpu']))
+            print("Use GPU: cuda:{}".format(self.args['gpu']))
+        else:
+            device = torch.device("cpu")
+            print("Use CPU")
+        return device
 
 
     def vali(self, vali_data, vali_loader, criterion):
@@ -162,6 +179,7 @@ class Exp_Classification(Exp_Basic):
             for i, (batch_x, label) in enumerate(tqdm(test_loader)):
                 batch_x = batch_x.float().to(self.device)
                 label = label.to(self.device)
+                
                 # padding_mask = padding_mask.float().to(device)
 
                 outputs = self.swa_model(batch_x, None, None, None)
@@ -217,10 +235,10 @@ class Exp_Classification(Exp_Basic):
         # test_data, test_loader = self._get_data(flag="TEST")
         
         
-        print(train_data.X.shape)
-        print(train_data.y.shape)
-        print(vali_data.X.shape)
-        print(vali_data.y.shape)
+        print(self.train_data.X.shape)
+        print(self.train_data.y.shape)
+        print(self.vali_data.X.shape)
+        print(self.vali_data.y.shape)
         # print(test_data.X.shape)
         # print(test_data.y.shape)
 
@@ -234,7 +252,7 @@ class Exp_Classification(Exp_Basic):
 
         time_now = time.time()
 
-        train_steps = len(train_loader)
+        train_steps = len(self.train_loader)
         early_stopping = EarlyStopping(
             patience=self.args['patience'], verbose=True, delta=1e-5
         )
@@ -252,7 +270,7 @@ class Exp_Classification(Exp_Basic):
             epoch_time = time.time()
 
             print("[Train Step]")
-            for i, (batch_x, label, padding_mask) in enumerate(tqdm(train_loader)):
+            for i, (batch_x, label, padding_mask) in enumerate(tqdm(self.train_loader)):
                 iter_count += 1
                 model_optim.zero_grad()
 
@@ -273,10 +291,10 @@ class Exp_Classification(Exp_Basic):
             self.swa_model.update_parameters(self.model)
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
-            train_loss = train_loss / len(train_loader.dataset)
+            train_loss = train_loss / len(self.train_loader.dataset)
             
             print("[Validation Step]")
-            vali_loss, val_metrics_dict = self.vali(vali_data, vali_loader, criterion)
+            vali_loss, val_metrics_dict = self.vali(self.vali_data, self.vali_loader, criterion)
             
             scheduler.step(val_metrics_dict['CPI'])
             # print("[Test Step]")
@@ -315,10 +333,10 @@ class Exp_Classification(Exp_Basic):
         return self.model
 
     def test(self, setting, test=0):
-        vali_data, vali_loader = self._get_data(flag="VAL")
+        # vali_data, vali_loader = self._get_data(flag="VAL")
         # test_data, test_loader = self._get_data(flag="TEST")
-        test_data = PublicTest("./dataset/KMedicon/public_test2.h5")
-        test_loader = DataLoader(test_data, batch_size=1, shuffle=False, num_workers=0, drop_last=False)
+        # test_data = PublicTest("./dataset/KMedicon/public_test2.h5")
+        # test_loader = DataLoader(test_data, batch_size=1, shuffle=False, num_workers=0, drop_last=False)
         
         if test:
             print("loading model")
@@ -336,8 +354,8 @@ class Exp_Classification(Exp_Basic):
                 self.model.load_state_dict(torch.load(model_path))
 
         criterion = self._select_criterion()
-        vali_loss, val_metrics_dict = self.vali(vali_data, vali_loader, criterion)
-        test_loss, test_metrics_dict = self.public_test(test_data, test_loader, criterion)
+        vali_loss, val_metrics_dict = self.vali(self.vali_data, self.vali_loader, criterion)
+        test_loss, test_metrics_dict = self.public_test(self.test_data, self.test_loader, criterion)
 
         # result save
         folder_path = (

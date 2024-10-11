@@ -15,6 +15,8 @@ class KMediconLoader(Dataset):
         self.y = y
         self.X = self.X.reshape(-1,2500,12)
         self.X = normalize_batch_ts(self.X)
+        
+        self.max_seq_len = self.X.shape[1]
 
     def __getitem__(self, index):
         X = torch.from_numpy(self.X[index])
@@ -28,23 +30,19 @@ class KMediconLoader(Dataset):
     
 
 class PublicTest(Dataset):
-    def __init__(self, data_path):
-        with h5py.File(data_path, 'r') as f:
-            ecg = f['ecg'][:]
-            label = f['label'][:]
-        
-        self.X = ecg
-        self.y = label
+    def __init__(self, X, y):
+        self.X = X
+        self.y = y
         self.X = self.X.reshape(-1,2500,12)
-        # pre_process
         self.X = normalize_batch_ts(self.X)
-        # self.X = bandpass_filter_func(self.X, fs=250, lowcut=0.5, highcut=45)
+        
+        self.max_seq_len = self.X.shape[1]
 
     def __getitem__(self, index):
         return torch.from_numpy(self.X[index]), torch.from_numpy(np.asarray(self.y[index]))
-
+        
     def __len__(self):
-        return len(self.X)
+        return len(self.y)
     
     
 def normalize_ts(ts):
