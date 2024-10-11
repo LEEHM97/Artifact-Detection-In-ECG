@@ -1,11 +1,18 @@
 import os
 import torch
-from classification import Exp_Classification
 import random
+import h5py
 import numpy as np
+from classification import Exp_Classification
 from config import CONFIG
+from sklearn.model_selection import StratifiedKFold
 
 if __name__ == "__main__":
+    # Get Dataset
+    with h5py.File(os.path.join(CONFIG['root_path'], "processed_features.h5"), 'r') as f:
+        ecg = f['ecg'][:]
+        label = f['label'][:]
+    
     
     for ii in range(CONFIG['itr']):
         # seed = CONFIG['seed']
