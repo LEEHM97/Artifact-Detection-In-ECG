@@ -1,11 +1,11 @@
 CONFIG = {
     # Basic config
-    'seed': 45,
+    'seed': 41,
     'is_training': 1,
-    'model_id': 'S01_9',
+    'model_id': 'HM08',
     'task_name': 'classification',
     'model': 'Medformer',
-    'monitor': 'vali_loss',
+    'monitor': 'CPI',
     
     # Data loader
     'data': 'K-Medicon',
@@ -32,19 +32,21 @@ CONFIG = {
     # 'moving_avg': 25,
     'factor': 1,
     # 'distil': True,
-    'dropout': 0.1,
+    'dropout': 0.5,
     'embed': 'timeF',
     'activation': 'gelu',
     'output_attention': False,
     'no_inter_attn': False,
     # 'sampling_rate': 125,
+    # 16 3번 32 5번
     'patch_len_list': '2,4,8,8,16,16,16,16,32,32,32,32,32,32,32,32',
+    # 'patch_len_list': '2,4,8,8,16,16,16,32,32,32,32,32',
     'single_channel': False,
     'augmentations': 'jitter0.2,scale0.2,drop0.5',
 
     # Optimization
     'num_workers': 0,
-    'itr': 1,
+    'itr': 5,
     'train_epochs': 100,
     'batch_size': 4,
     'patience': 5,
@@ -53,6 +55,14 @@ CONFIG = {
     'loss': 'MSE',
     'lradj': 'type1',
     'swa': True,
+    
+    'max_lr':1e-4,
+    'wd': 1e-3,
+    
+    'T_0': 100,
+    'T_mult': 2,
+    'T_up': 2,
+    'gamma': 0.5,
     
     # GPU
     'use_gpu': True,

@@ -165,3 +165,6 @@ dataset/
 test*
 checkpoints
 results/
+public_results/
+BestModels/
+label/

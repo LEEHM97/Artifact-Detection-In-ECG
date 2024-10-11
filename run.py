@@ -8,8 +8,8 @@ from config import CONFIG
 if __name__ == "__main__":
     
     for ii in range(CONFIG['itr']):
-        seed = CONFIG['seed']
-        # seed = 41 + ii
+        # seed = CONFIG['seed']
+        seed = 41+ii
         
         random.seed(seed)
         os.environ['PYTHONHASHSEED'] = str(seed)
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         exp = Exp_Classification(CONFIG)
         
         if CONFIG['is_training']:
-            
+            print(setting)
             print("==============================   Start Training   ==============================")
             exp.train(setting)
         

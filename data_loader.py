@@ -124,7 +124,7 @@ class KMediconLoader(Dataset):
     def __getitem__(self, index):
         X = torch.from_numpy(self.X[index])
         y = torch.from_numpy(np.asarray(self.y[index]))
-        y = torch.nn.functional.one_hot(y.reshape(-1,).to(torch.long),num_classes=2)
+        y = torch.nn.functional.one_hot(y.reshape(-1,).to(torch.long), num_classes=2)
         
         return X, y
 
@@ -161,9 +161,15 @@ def normalize_ts(ts):
     Returns:
         ts (numpy.ndarray): The processed time-series.
     """
-    scaler = StandardScaler()
-    scaler.fit(ts)
-    ts = scaler.transform(ts)
+    # scaler = StandardScaler()
+    # scaler.fit(ts)
+    # ts = scaler.transform(ts)
+
+    # Min-Max
+    for i in range(12):
+        signal = ts[:, i]
+        ts[:, i] = (signal - signal.mean()) / signal.std()
+    
     return ts    
     
     

@@ -65,10 +65,17 @@ class Model(nn.Module):
         if self.task_name == "classification":
             self.act = F.gelu
             self.dropout = nn.Dropout(configs['dropout'])
-            self.projection = nn.Linear(
-                configs['d_model']* sum(patch_num_list)* (1 if not self.single_channel else configs['enc_in']),
-                configs['num_class'],
-            )
+            self.projection = nn.Linear(configs['d_model']* sum(patch_num_list)* (1 if not self.single_channel else configs['enc_in']), configs['num_class'])
+            
+            # self.projection = nn.Sequential(
+            # nn.Linear(
+            #     configs['d_model'] * sum(patch_num_list) * (1 if not self.single_channel else configs['enc_in']),
+            #     1024),
+            # nn.BatchNorm1d(1024),
+            # nn.ReLU(inplace=True),
+            # nn.Dropout(configs['dropout']),
+            # nn.Linear(1024, 2)
+            # )
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         raise NotImplementedError
