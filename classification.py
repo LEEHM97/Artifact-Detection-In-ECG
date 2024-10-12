@@ -2,7 +2,7 @@ from config import CONFIG
 from data_factory import data_provider
 from data_loader import PublicTest
 from exp_basic import Exp_Basic
-from utils import EarlyStopping
+from utils import EarlyStopping, FocalLoss
 import torch
 import torch.nn as nn
 from torch import optim
@@ -64,9 +64,10 @@ class Exp_Classification(Exp_Basic):
         return model_optim
 
     def _select_criterion(self):
-        criterion = nn.CrossEntropyLoss()
+        # criterion = nn.CrossEntropyLoss()
         # criterion = nn.MultiLabelSoftMarginLoss()
         # criterion = nn.BCEWithLogitsLoss()
+        criterion = FocalLoss()
         return criterion
 
     def vali(self, vali_data, vali_loader, criterion):
@@ -102,6 +103,7 @@ class Exp_Classification(Exp_Basic):
         preds = torch.cat(preds, 0)
         trues = torch.cat(trues, 0)
         probs = torch.nn.functional.softmax(
+        # probs = torch.nn.functional.sigmoid(
             preds
         )  # (total_samples, num_classes) est. prob. for each class and sample
         trues_onehot = (
@@ -283,8 +285,8 @@ class Exp_Classification(Exp_Basic):
                 f"CPI: {test_metrics_dict['CPI']:.5f}\n"
             )
             early_stopping(
-                vali_loss,
-                # -val_metrics_dict["CPI"],
+                # vali_loss,
+                -val_metrics_dict["CPI"],
                 # -val_metrics_dict["MCC"],
                 # -val_metrics_dict["F1"],
                 self.swa_model if self.swa else self.model,
