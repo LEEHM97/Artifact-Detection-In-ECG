@@ -4,24 +4,11 @@
 
 ## Requirements
 
-The recommended requirements are specified as follows:
+Create conda environment:
+```
+conda create -n rtfact python=3 ipykernel
+```
 
-- Python 3.8
-- Jupyter Notebook
-- einops==0.4.0
-- matplotlib==3.7.0
-- numpy==1.23.5
-- pandas==1.5.3
-- patool==1.12
-- reformer-pytorch==1.4.4
-- scikit-learn==1.2.2
-- scipy==1.10.1
-- sktime==0.16.1
-- sympy==1.11.1
-- tqdm==4.64.1
-- wfdb==4.1.2
-- neurokit2==0.2.9
-- mne==1.6.1
 
 The dependencies can be installed by:
 
@@ -34,4 +21,43 @@ Installing versions of PyTorch as follows:
 ```
 # CUDA 11.8
 conda install pytorch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 pytorch-cuda=11.8 -c pytorch -c nvidia
+```
+
+</br>
+
+## Dataset path
+Your data directory should look like this:
+
+```bash
+└── dataset
+    └── KMedicon
+        ├── Signal_Train.pkl
+        └── Target_Train.pkl
+``` 
+
+</br>
+
+## Configuration
+You can change the configuration in `config.py`. The default configuration is:
+
+|Name|Value|
+|------|---|
+|split_ratio|0.8|
+|enc_in|7|
+|c_out|7|
+|d_model|128|
+|n_heads|8|
+|e_layers|6|
+|d_ff|256|
+|dropout|0.1|
+|patch_len_list|'2,4,8,8,16,16,16,16,32,32,32,32,32,32,32,32'|
+|augmentations|'jitter0.2,scale0.2,drop0.5'|
+|learning_rate|1e-4|
+
+</br>
+
+## Model Training
+
+```
+>>> python run.py
 ```
