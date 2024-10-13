@@ -41,7 +41,7 @@ CONFIG = {
     'patience': 5,
     'learning_rate': 1e-4,
     'des': 'Exp',
-    'loss': 'MSE',
+    'loss': 'CrossEntropyLoss',
     'lradj': 'type1',
     'swa': True,
     
