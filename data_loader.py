@@ -16,7 +16,7 @@ class KMediconLoader(Dataset):
         self.ecg, self.label = get_data_from_pkl(root_path, flag='train')
         
         # list of IDs for training, val sets
-        self.train_ids, self.val_ids = self.load_train_val_test_list(self.label, CONFIG['split_ratio'])
+        self.train_ids, self.val_ids = self.load_train_val_list(self.label, CONFIG['split_ratio'])
 
         self.X, self.y = self.load_data(self.ecg, self.label, flag=flag)
 
@@ -25,7 +25,7 @@ class KMediconLoader(Dataset):
 
         self.max_seq_len = self.X.shape[1]
 
-    def load_train_val_test_list(self, label, ratio):
+    def load_train_val_list(self, label, ratio):
         norm_list = list(
             list(np.where(label[:] == 0)[0])
         )  # Normal ECG IDs
