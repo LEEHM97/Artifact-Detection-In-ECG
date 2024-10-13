@@ -1,16 +1,15 @@
-from data_factory import data_provider
-from exp_basic import Exp_Basic
-from utils import EarlyStopping, mcc_score, FocalLoss, CosineAnnealingWarmUpRestarts
 import torch
 import torch.nn as nn
-from torch import optim
 import os
 import time
 import warnings
 import numpy as np
 import random
-from torch.utils.data import DataLoader
-from data_loader import PublicTest
+import Medformer
+
+from torch import optim
+from data_factory import data_provider
+from utils import EarlyStopping, mcc_score
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
@@ -23,26 +22,26 @@ from sklearn.metrics import average_precision_score
 warnings.filterwarnings("ignore")
 
 
-class Exp_Classification(Exp_Basic):
+class Exp_Classification():
     def __init__(self, args):
-        super().__init__(args)
+        
+        self.args = args
+        self.device = self._acquire_device()
+        self.model = self._build_model().to(self.device)
 
         self.swa_model = optim.swa_utils.AveragedModel(self.model)
         self.swa = args['swa']
 
     def _build_model(self):
         # model input depends on data
-        # train_data, train_loader = self._get_data(flag='TRAIN')
         test_data, test_loader = self._get_data(flag="VAL")
-        self.args['seq_len'] = test_data.max_seq_len  # redefine seq_len
+        self.args['seq_len'] = test_data.max_seq_len
         self.args['pred_len'] = 0
-        # self.args.enc_in = train_data.feature_df.shape[1]
-        # self.args.num_class = len(train_data.class_names)
         self.args['enc_in'] = test_data.X.shape[2]  # redefine enc_in
         self.args['num_class'] = len(np.unique(test_data.y))
         # model init
         model = (
-            self.model_dict[self.args['model']].Model(self.args).float()
+            Medformer.Model(self.args).float()
         )  # pass args to model
         if self.args['use_multi_gpu'] and self.args['use_gpu']:
             model = nn.DataParallel(model, device_ids=self.args['device_ids'])
@@ -59,19 +58,25 @@ class Exp_Classification(Exp_Basic):
 
     def _select_criterion(self):
         criterion = nn.CrossEntropyLoss()
-        # criterion = nn.BCEWithLogitsLoss()
-        # criterion = FocalLoss()
+        
         return criterion
 
     def _select_scheduler(self, optimizer, steps):
-        # scheduler = CosineAnnealingWarmUㅋpRestarts(optimizer=optimizer, T_0=self.args['T_0'], T_mult=self.args['T_mult'], 
-                                            #   eta_max=self.args['max_lr'], T_up=self.args['T_up'], gamma=self.args['gamma'])
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=2, verbose=True)
-        # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
-        # max_lr=self.args['max_lr'],  # init_lr의 2 ~ 10배
-        # total_steps=self.args['train_epochs'] * steps,)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2, verbose=True)
             
         return scheduler
+    
+    def _acquire_device(self):
+        if self.args['use_gpu']:
+            os.environ["CUDA_VISIBLE_DEVICES"] = (
+                str(self.args['gpu']) if not self.args['use_multi_gpu'] else self.args['devices']
+            )
+            device = torch.device("cuda:{}".format(self.args['gpu']))
+            print("Use GPU: cuda:{}".format(self.args['gpu']))
+        else:
+            device = torch.device("cpu")
+            print("Use CPU")
+        return device
 
 
     def vali(self, vali_data, vali_loader, criterion):
@@ -95,41 +100,25 @@ class Exp_Classification(Exp_Basic):
                     outputs = self.model(batch_x, padding_mask, None, None)
 
                 pred = outputs.detach().cpu()
-                loss = criterion(pred, label.cpu())
-                # loss = criterion(pred, label.float().cpu())
-                # total_loss.append(loss)
+                loss = criterion(pred, label.float().cpu())
+
                 total_loss += loss * batch_x.size(0)
 
                 preds.append(outputs.detach())
                 trues.append(label)
 
-        # total_loss = np.average(total_loss)
         total_loss = total_loss / len(vali_loader.dataset)
 
         preds = torch.cat(preds, 0).squeeze(1)
         trues = torch.cat(trues, 0)
-        probs = torch.nn.functional.sigmoid(preds)  # (total_samples, num_classes) est. prob. for each class and sample
-        # probs = torch.nn.functional.softmax(preds)  # (total_samples, num_classes) est. prob. for each class and sample
+        probs = torch.nn.functional.sigmoid(preds)
+
         trues_onehot = trues.float().cpu().numpy()
-        # trues_onehot = (
-        #     torch.nn.functional.one_hot(
-        #         trues.reshape(
-        #             -1,
-        #         ).to(torch.long),
-        #         num_classes=self.args['num_class'],
-        #     )
-        #     .float()
-        #     .cpu()
-        #     .numpy()
-        # )
-    
-        # print(trues_onehot.shape)
+
         predictions = torch.argmax(probs, dim=1).cpu().numpy()
-        # predictions = (probs>0.5).float().cpu().numpy()
         
         probs = probs.cpu().numpy()
         trues = torch.argmax(trues, dim=1).cpu().numpy()
-        # trues = trues.cpu().numpy()
 
         f1 = f1_score(trues, predictions, average="binary")
         auroc = roc_auc_score(trues_onehot, probs)
@@ -151,80 +140,14 @@ class Exp_Classification(Exp_Basic):
         else:
             self.model.train()
         return total_loss, metrics_dict
-    
-    
-    def public_test(self, vali_data, test_loader, criterion):
-        total_loss = 0.0
-        preds = []
-        trues = []
-        
-        if self.swa:
-            self.swa_model.eval()
-        else:
-            self.model.eval()
-        with torch.no_grad():
-            for i, (batch_x, label) in enumerate(tqdm(test_loader)):
-                batch_x = batch_x.float().to(self.device)
-                label = label.to(self.device)
-                # padding_mask = padding_mask.float().to(device)
-
-                outputs = self.swa_model(batch_x, None, None, None)
-
-                pred = outputs.detach().cpu()
-
-                preds.append(outputs.detach())
-                trues.append(label)
-
-        preds = torch.cat(preds, 0)
-        trues = torch.cat(trues, 0)
-
-        probs = torch.nn.functional.sigmoid(
-            preds
-        )  # (total_samples, num_classes) est. prob. for each class and sample
-
-        trues_onehot = (torch.nn.functional.one_hot(trues.reshape(-1,).to(torch.long),
-                        num_classes=self.args['num_class'],).float().cpu().numpy())
-
-        # print(trues_onehot.shape)
-        predictions = (
-            torch.argmax(probs, dim=1).cpu().numpy()
-        )  # (total_samples,) int class index for each sample
-        probs = probs.cpu().numpy()
-        trues = trues.flatten().cpu().numpy()
-        
-
-        f1 = f1_score(trues, predictions, average="binary")
-        auroc = roc_auc_score(trues_onehot, probs)
-        mcc = mcc_score(trues, predictions)
-
-        metrics_dict = {
-            "Accuracy": accuracy_score(trues, predictions),
-            "Precision": precision_score(trues, predictions, average="binary"),
-            "Recall": recall_score(trues, predictions, average="binary"),
-            "F1": f1,
-            "AUROC": auroc,
-            "AUPRC": average_precision_score(trues_onehot, probs, average="macro"),
-            "MCC": mcc,
-            "CPI": (0.25 * f1) + (0.25 * auroc) + (0.5 * mcc)
-        }
-
-        if self.swa:
-            self.swa_model.train()
-        else:
-            self.model.train()
-        return total_loss, metrics_dict
-    
 
     def train(self, setting):
         train_data, train_loader = self._get_data(flag="TRAIN")
         vali_data, vali_loader = self._get_data(flag="VAL")
-        # test_data, test_loader = self._get_data(flag="TEST")
         print(train_data.X.shape)
         print(train_data.y.shape)
         print(vali_data.X.shape)
         print(vali_data.y.shape)
-        # print(test_data.X.shape)
-        # print(test_data.y.shape)
 
         path = (
             "./checkpoints/"
@@ -233,8 +156,6 @@ class Exp_Classification(Exp_Basic):
         )
         if not os.path.exists(path):
             os.makedirs(path)
-
-        time_now = time.time()
 
         train_steps = len(train_loader)
         early_stopping = EarlyStopping(
@@ -247,7 +168,6 @@ class Exp_Classification(Exp_Basic):
 
         for epoch in range(self.args['train_epochs']):
             iter_count = 0
-            # train_loss = []
             train_loss = 0.0
 
             self.model.train()
@@ -264,7 +184,8 @@ class Exp_Classification(Exp_Basic):
                 label = label.squeeze(1).float()
                 
                 outputs = self.model(batch_x, padding_mask, None, None)
-                loss = criterion(outputs, label)
+                
+                loss = criterion(outputs, label.float())
 
                 train_loss += loss.item() * batch_x.size(0)
 
@@ -280,9 +201,7 @@ class Exp_Classification(Exp_Basic):
             print("[Validation Step]")
             vali_loss, val_metrics_dict = self.vali(vali_data, vali_loader, criterion)
             
-            scheduler.step(val_metrics_dict['CPI'])
-            # print("[Test Step]")
-            # test_loss, test_metrics_dict = self.vali(test_data, test_loader, criterion)
+            scheduler.step(vali_loss)
 
             print(
                 f"Epoch: {epoch + 1}, Steps: {train_steps}, | Train Loss: {train_loss:.5f}\n"
@@ -295,27 +214,17 @@ class Exp_Classification(Exp_Basic):
                 f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
                 f"MCC: {val_metrics_dict['MCC']:.5f}, "
                 f"CPI: {val_metrics_dict['CPI']:.5f}\n"
-                # f"Test results --- Loss: {test_loss:.5f}, "
-                # f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
-                # f"Precision: {test_metrics_dict['Precision']:.5f}, "
-                # f"Recall: {test_metrics_dict['Recall']:.5f} "
-                # f"AUPRC: {test_metrics_dict['AUPRC']:.5f}, "
-                # f"F1: {test_metrics_dict['F1']:.5f}, "
-                # f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-                # f"MCC: {test_metrics_dict['MCC']:.5f}, "
-                # f"CPI: {test_metrics_dict['CPI']:.5f}\n"
             )
+            
             early_stopping(
-                -val_metrics_dict["CPI"],
-                # vali_loss,
+                vali_loss,
                 self.swa_model if self.swa else self.model,
                 path,
             )
+        
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
-            """if (epoch + 1) % 5 == 0:
-                adjust_learning_rate(model_optim, epoch + 1, self.args)"""
 
         best_model_path = path + "checkpoint.pth"
         if self.swa:
@@ -327,9 +236,6 @@ class Exp_Classification(Exp_Basic):
 
     def test(self, setting, test=0):
         vali_data, vali_loader = self._get_data(flag="VAL")
-        # test_data, test_loader = self._get_data(flag="TEST")
-        test_data = PublicTest("./dataset/KMedicon/public_test2.h5")
-        test_loader = DataLoader(test_data, batch_size=1, shuffle=False, num_workers=0, drop_last=False)
         
         if test:
             print("loading model")
@@ -338,6 +244,7 @@ class Exp_Classification(Exp_Basic):
                 + setting
                 + "/"
             )
+            
             model_path = path + "checkpoint.pth"
             if not os.path.exists(model_path):
                 raise Exception("No model found at %s" % model_path)
@@ -348,7 +255,6 @@ class Exp_Classification(Exp_Basic):
 
         criterion = self._select_criterion()
         vali_loss, val_metrics_dict = self.vali(vali_data, vali_loader, criterion)
-        test_loss, test_metrics_dict = self.public_test(test_data, test_loader, criterion)
 
         # result save
         folder_path = (
@@ -373,15 +279,6 @@ class Exp_Classification(Exp_Basic):
             f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
             f"MCC: {val_metrics_dict['MCC']:.5f}, "
             f"CPI: {val_metrics_dict['CPI']:.5f}\n"
-            f"Test results --- Loss: {test_loss:.5f}, "
-            f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
-            f"Precision: {test_metrics_dict['Precision']:.5f}, "
-            f"Recall: {test_metrics_dict['Recall']:.5f}, "
-            f"AUPRC: {test_metrics_dict['AUPRC']:.5f} ,"
-            f"F1: {test_metrics_dict['F1']:.5f}, "
-            f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-            f"MCC: {test_metrics_dict['MCC']:.5f}, "
-            f"CPI: {test_metrics_dict['CPI']:.5f}\n"
         )
         file_name = "result_classification.txt"
         f = open(os.path.join(folder_path, file_name), "a")
@@ -396,15 +293,6 @@ class Exp_Classification(Exp_Basic):
             f"AUROC: {val_metrics_dict['AUROC']:.5f}, "
             f"MCC: {val_metrics_dict['MCC']:.5f}, "
             f"CPI: {val_metrics_dict['CPI']:.5f}\n"
-            f"Test results --- Loss: {test_loss:.5f}, "
-            f"Accuracy: {test_metrics_dict['Accuracy']:.5f}, "
-            f"Precision: {test_metrics_dict['Precision']:.5f}, "
-            f"Recall: {test_metrics_dict['Recall']:.5f}, "
-            f"AUPRC: {test_metrics_dict['AUPRC']:.5f} ,"
-            f"F1: {test_metrics_dict['F1']:.5f}, "
-            f"AUROC: {test_metrics_dict['AUROC']:.5f}, "
-            f"MCC: {test_metrics_dict['MCC']:.5f}, "
-            f"CPI: {test_metrics_dict['CPI']:.5f}\n"
         )
         f.write("\n")
         f.write("\n")

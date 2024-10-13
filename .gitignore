@@ -166,5 +166,6 @@ test*
 checkpoints
 results/
 public_results/
+private_results/
 BestModels/
 label/

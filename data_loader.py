@@ -1,53 +1,31 @@
 import os
 import torch
-import h5py
 import numpy as np
+from scipy import interpolate
+import pickle
+import h5py
 
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from sklearn.utils import shuffle
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from config import CONFIG
 
 
 class KMediconLoader(Dataset):
     def __init__(self, root_path, flag=None):
-        with h5py.File(os.path.join(root_path, "processed_features.h5"), 'r') as f:
-            ecg = f['ecg'][:]
-            label = f['label'][:]
+        self.ecg, self.label = get_data_from_pkl(root_path)
         
-        self.ecg = ecg
-        self.label = label
-        self.root_path = root_path
+        # list of IDs for training, val sets
+        self.train_ids, self.val_ids = self.load_train_val_test_list(self.label, CONFIG['split_ratio'])
 
-        a, b = 0.6, 0.8
-
-        # list of IDs for training, val, and test sets
-        self.train_ids, self.val_ids = self.load_train_val_test_list(
-            self.label, a, b
-        )
-
-        self.X, self.y = self.load_ptbxl(self.ecg, self.label, flag=flag)
-
-        self.X = self.X.reshape(-1,2500,12)
+        self.X, self.y = self.load_data(self.ecg, self.label, flag=flag)
 
         # pre_process
         self.X = normalize_batch_ts(self.X)
-        # self.X = bandpass_filter_func(self.X, fs=250, lowcut=0.5, highcut=45)
 
         self.max_seq_len = self.X.shape[1]
 
-    def load_train_val_test_list(self, label, a=0.6, b=0.8):
-        """
-        Loads IDs for training, validation, and test sets
-        Args:
-            label_path: directory of label.npy file
-            a: ratio of ids in training set
-            b: ratio of ids in training and validation set
-        Returns:
-            train_ids: list of IDs for training set
-            val_ids: list of IDs for validation set
-            test_ids: list of IDs for test set
-        """
+    def load_train_val_test_list(self, label, ratio):
         norm_list = list(
             list(np.where(label[:] == 0)[0])
         )  # Normal ECG IDs
@@ -56,70 +34,29 @@ class KMediconLoader(Dataset):
         )  # Artifact ECG IDs
 
         train_ids = (
-            norm_list[: int(b * len(norm_list))]
-            + arti_list[: int(b * len(arti_list))]
+            norm_list[: int(ratio * len(norm_list))]
+            + arti_list[: int(ratio * len(arti_list))]
         )
         val_ids = (
-            norm_list[int(b * len(norm_list)) : ]
-            + arti_list[int(b * len(arti_list)) : ]
+            norm_list[int(ratio * len(norm_list)) : ]
+            + arti_list[int(ratio * len(arti_list)) : ]
         )
-        # test_ids = (
-        #     norm_list[int(b * len(norm_list)) :]
-        #     + arti_list[int(b * len(arti_list)) :]
-        # )
 
         return train_ids, val_ids
 
-    def load_ptbxl(self, ecg, label, flag=None):
-        """
-        Loads ptb-xl data from npy files in data_path based on flag and ids in label_path
-        Args:
-            data_path: directory of data files
-            label_path: directory of label.npy file
-            flag: 'train', 'val', or 'test'
-        Returns:
-            X: (num_samples, seq_len, feat_dim) np.array of features
-            y: (num_samples, ) np.array of labels
-        """
-        feature_list = []
-        label_list = []
-        # filenames = []
-
-        # The first column is the label; the second column is the patient ID
-        # subject_label = np.load(label_path)
-        # for filename in os.listdir(data_path):
-        #     filenames.append(filename)
-        # filenames.sort()
-
+    def load_data(self, ecg, label, flag=None):
         if flag == "TRAIN":
             ids = self.train_ids
             # print("train ids:", ids)
         elif flag == "VAL":
             ids = self.val_ids
             # print("val ids:", ids)
-        elif flag == "TEST":
-            ids = self.test_ids
-            # print("test ids:", ids)
-        # else:
-            # ids = subject_label[:, 1]
-            # print("all ids:", ids)
-
-        # for j in range(len(filenames)):
-        #     trial_label = subject_label[j]
-        #     path = data_path + filenames[j]
-        #     subject_feature = np.load(path)
-        #     for trial_feature in subject_feature:
-        #         # load data by ids
-        #         if j in ids:  # id starts from 1, not 0.
-        #             feature_list.append(trial_feature)
-        #             label_list.append(trial_label)
                     
-        # reshape and shuffle
         X = ecg[ids]        
         y = label[ids]
         X, y = shuffle(X, y, random_state=42)
 
-        return X, y  # only use the first column (label)
+        return X, y
 
     def __getitem__(self, index):
         X = torch.from_numpy(self.X[index])
@@ -131,26 +68,6 @@ class KMediconLoader(Dataset):
     def __len__(self):
         return len(self.y)
     
-
-class PublicTest(Dataset):
-    def __init__(self, data_path):
-        with h5py.File(data_path, 'r') as f:
-            ecg = f['ecg'][:]
-            label = f['label'][:]
-        
-        self.X = ecg
-        self.y = label
-        self.X = self.X.reshape(-1,2500,12)
-        # pre_process
-        self.X = normalize_batch_ts(self.X)
-        # self.X = bandpass_filter_func(self.X, fs=250, lowcut=0.5, highcut=45)
-
-    def __getitem__(self, index):
-        return torch.from_numpy(self.X[index]), torch.from_numpy(np.asarray(self.y[index]))
-
-    def __len__(self):
-        return len(self.X)
-    
     
 def normalize_ts(ts):
     """normalize a time-series data
@@ -161,16 +78,11 @@ def normalize_ts(ts):
     Returns:
         ts (numpy.ndarray): The processed time-series.
     """
-    # scaler = StandardScaler()
-    # scaler.fit(ts)
-    # ts = scaler.transform(ts)
-
-    # Min-Max
     for i in range(12):
         signal = ts[:, i]
         ts[:, i] = (signal - signal.mean()) / signal.std()
     
-    return ts    
+    return ts
     
     
 def normalize_batch_ts(batch):
@@ -185,3 +97,63 @@ def normalize_batch_ts(batch):
     return np.array(
         list(map(normalize_ts, batch))
     )
+    
+
+# resampling to 250Hz
+def resampling(array, freq, kind='linear'):
+    t = np.linspace(1, len(array), len(array))
+    f = interpolate.interp1d(t, array, kind=kind)
+    t_new = np.linspace(1, len(array), int(len(array)/freq * 250))
+    new_array = f(t_new)
+    
+    return new_array
+
+
+def get_data_from_pkl(root_path):
+    with open(os.path.join(root_path, "Signal_Train.pkl"), 'rb') as f:
+        ecg = pickle.load(f)
+            
+    with open(os.path.join(root_path, "Target_Train.pkl"), 'rb') as f:
+        label = pickle.load(f)
+    
+    ecg = np.array(ecg)
+    p_label = label.Target.values
+    
+    p_ecg = []
+    for ecg_data in ecg:
+        sub = []
+        trial = []
+        for ch in range(ecg_data.shape[1]):
+            data = resampling(ecg_data[:,ch], freq=500, kind='linear')
+            trial.append(data)
+            
+        trial = np.array(trial).T
+        sub.append(trial)
+
+        sub = np.array(sub)
+        sub = sub.reshape(-1, 2500, sub.shape[-1])
+
+        p_ecg.append(sub)
+        
+    p_ecg = np.array(p_ecg).squeeze(1)
+    
+    return p_ecg, p_label
+
+
+class PublicTest(Dataset):
+    def __init__(self, data_path):
+        with h5py.File(data_path, 'r') as f:
+            ecg = f['ecg'][:]
+            label = f['label'][:]
+        
+        self.X = ecg
+        self.y = label
+        self.X = self.X.reshape(-1,2500,12)
+        # pre_process
+        self.X = normalize_batch_ts(self.X)
+
+    def __getitem__(self, index):
+        return torch.from_numpy(self.X[index]), torch.from_numpy(np.asarray(self.y[index]))
+
+    def __len__(self):
+        return len(self.X)

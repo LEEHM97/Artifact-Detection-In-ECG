@@ -8,8 +8,7 @@ from config import CONFIG
 if __name__ == "__main__":
     
     for ii in range(CONFIG['itr']):
-        # seed = CONFIG['seed']
-        seed = 41+ii
+        seed = CONFIG['seed'] + ii
         
         random.seed(seed)
         os.environ['PYTHONHASHSEED'] = str(seed)
@@ -24,7 +23,7 @@ if __name__ == "__main__":
         CONFIG['seed'] = seed
         setting = "{}_{}_{}_{}_bs{}_sl{}_lr{}_pl{}_dm{}_nh{}_el{}_df{}_fc{}_eb{}_{}_seed{}".format(
                     CONFIG['task_name'],
-                    CONFIG['model_id'],
+                    CONFIG['model_id'], 
                     CONFIG['model'],
                     CONFIG['data'],
                     CONFIG['batch_size'],

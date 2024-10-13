@@ -7,7 +7,6 @@ from torch.optim.lr_scheduler import _LRScheduler
 
 plt.switch_backend("agg")
 
-
 def adjust_learning_rate(optimizer, epoch, args):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))
     if args.lradj == "type1":
@@ -122,7 +121,6 @@ def cal_accuracy(y_pred, y_true):
 
 
 def mcc_score(y_true, y_pred):
-    # -1과 1사이의 값을 가지며, 1에 가까울수록 비슷
     tp = ((y_true == 1) & (y_pred == 1)).sum().item()
     tn = ((y_true == 0) & (y_pred == 0)).sum().item()
     fp = ((y_true == 0) & (y_pred == 1)).sum().item()
@@ -136,14 +134,6 @@ def mcc_score(y_true, y_pred):
     
     return numerator / denominator
 
-def calculate_cpi(y_true, y_pred, f1, auroc):    
-    # MCC 계산
-    mcc_value = mcc_score(y_true, y_pred)
-    
-    # CPI 계산
-    cpi = 0.25 * f1 + 0.25 * auroc + 0.5 * mcc_value
-    
-    return cpi
 
 class FocalLoss(nn.Module):
     def __init__(self, alpha=1.0, gamma=2.0, reduction='mean'):
@@ -220,3 +210,5 @@ class CosineAnnealingWarmUpRestarts(_LRScheduler):
         self.last_epoch = math.floor(epoch)
         for param_group, lr in zip(self.optimizer.param_groups, self.get_lr()):
             param_group['lr'] = lr
+            
+            

@@ -8,12 +8,6 @@ from layers.Embed import ListPatchEmbedding
 
 
 class Model(nn.Module):
-    """
-    Vanilla Transformer
-    with O(L^2) complexity
-    Paper link: https://proceedings.neurips.cc/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf
-    """
-
     def __init__(self, configs):
         super(Model, self).__init__()
         self.task_name = configs['task_name']
@@ -67,15 +61,6 @@ class Model(nn.Module):
             self.dropout = nn.Dropout(configs['dropout'])
             self.projection = nn.Linear(configs['d_model']* sum(patch_num_list)* (1 if not self.single_channel else configs['enc_in']), configs['num_class'])
             
-            # self.projection = nn.Sequential(
-            # nn.Linear(
-            #     configs['d_model'] * sum(patch_num_list) * (1 if not self.single_channel else configs['enc_in']),
-            #     1024),
-            # nn.BatchNorm1d(1024),
-            # nn.ReLU(inplace=True),
-            # nn.Dropout(configs['dropout']),
-            # nn.Linear(1024, 2)
-            # )
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         raise NotImplementedError
