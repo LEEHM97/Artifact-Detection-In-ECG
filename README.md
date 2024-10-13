@@ -42,7 +42,7 @@ Your data directory should look like this:
 |------|---|
 |Time|10 second|
 |Sampling rate|250Hz|
-|Normalization|Z-score|
+|Standardization|Z-score|
 
 </br>
 
