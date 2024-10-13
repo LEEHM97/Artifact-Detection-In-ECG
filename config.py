@@ -6,6 +6,7 @@ CONFIG = {
     'task_name': 'classification',
     'model': 'Medformer',
     'monitor': 'vali_loss',
+    'ckpt_path': "./checkpoints/classification_NORM04_Medformer_K-Medicon_bs4_sl2500_lr0.0001_pl0_dm128_nh8_el6_df256_fc1_ebtimeF_Exp_seed45/checkpoint.pth",
     
     # Data loader
     'data': 'K-Medicon',

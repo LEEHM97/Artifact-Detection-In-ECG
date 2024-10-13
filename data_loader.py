@@ -9,10 +9,11 @@ from torch.utils.data import Dataset
 from sklearn.utils import shuffle
 from config import CONFIG
 
-
+    
 class KMediconLoader(Dataset):
     def __init__(self, root_path, flag=None):
-        self.ecg, self.label = get_data_from_pkl(root_path)
+        
+        self.ecg, self.label = get_data_from_pkl(root_path, flag='train')
         
         # list of IDs for training, val sets
         self.train_ids, self.val_ids = self.load_train_val_test_list(self.label, CONFIG['split_ratio'])
@@ -68,6 +69,20 @@ class KMediconLoader(Dataset):
         return len(self.y)
     
     
+class KMediconPrivateLoader(Dataset):
+    def __init__(self, data_path):
+        self.X = get_data_from_pkl(data_path, flag='test')
+        
+        # pre_process
+        self.X = normalize_batch_ts(self.X)
+
+    def __getitem__(self, index):
+        return torch.from_numpy(self.X[index])
+
+    def __len__(self):
+        return len(self.X)  
+    
+    
 def normalize_ts(ts):
     """normalize a time-series data
 
@@ -108,15 +123,21 @@ def resampling(array, freq, kind='linear'):
     return new_array
 
 
-def get_data_from_pkl(root_path):
-    with open(os.path.join(root_path, "Signal_Train.pkl"), 'rb') as f:
-        ecg = pickle.load(f)
-            
-    with open(os.path.join(root_path, "Target_Train.pkl"), 'rb') as f:
-        label = pickle.load(f)
+def get_data_from_pkl(root_path, flag):
+    if flag=='train':
+        with open(os.path.join(root_path, "Signal_Train.pkl"), 'rb') as f:
+            ecg = pickle.load(f)
+                
+        with open(os.path.join(root_path, "Target_Train.pkl"), 'rb') as f:
+            label = pickle.load(f)
+    
+        p_label = label.Target.values
+    
+    elif flag=='test':
+        with open(os.path.join(root_path, "Signal_Test_Private.pkl"), 'rb') as f:
+            ecg = pickle.load(f)
     
     ecg = np.array(ecg)
-    p_label = label.Target.values
     
     p_ecg = []
     for ecg_data in ecg:
@@ -135,24 +156,9 @@ def get_data_from_pkl(root_path):
         p_ecg.append(sub)
         
     p_ecg = np.array(p_ecg).squeeze(1)
+
+    if flag=='train':    
+        return p_ecg, p_label
     
-    return p_ecg, p_label
-
-
-class PublicTest(Dataset):
-    def __init__(self, data_path):
-        with h5py.File(data_path, 'r') as f:
-            ecg = f['ecg'][:]
-            label = f['label'][:]
-        
-        self.X = ecg
-        self.y = label
-        self.X = self.X.reshape(-1,2500,12)
-        # pre_process
-        self.X = normalize_batch_ts(self.X)
-
-    def __getitem__(self, index):
-        return torch.from_numpy(self.X[index]), torch.from_numpy(np.asarray(self.y[index]))
-
-    def __len__(self):
-        return len(self.X)
+    else:
+        return p_ecg

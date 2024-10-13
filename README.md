@@ -32,7 +32,8 @@ Your data directory should look like this:
 └── dataset
     └── KMedicon
         ├── Signal_Train.pkl
-        └── Target_Train.pkl
+        ├── Target_Train.pkl
+        └── Signal_Test_Private.pkl
 ``` 
 
 </br>
@@ -75,4 +76,13 @@ You can change the configuration in `config.py`. The default configuration is:
 
 ```
 >>> python run.py
+```
+
+</br>
+
+## Inference
+Change `ckpt_path` in `config.py` to match your model path
+
+```
+>>> python inference_private.py
 ```
