@@ -37,7 +37,16 @@ Your data directory should look like this:
 
 </br>
 
-## Configuration
+## Data Preprocessing
+|Name|Value|
+|------|---|
+|Time|10 second|
+|Sampling rate|250Hz|
+|Normalization|Z-score|
+
+</br>
+
+## Optimizer and Hyperparameter Configuration
 You can change the configuration in `config.py`. The default configuration is:
 
 |Name|Value|
@@ -52,7 +61,13 @@ You can change the configuration in `config.py`. The default configuration is:
 |dropout|0.1|
 |patch_len_list|'2,4,8,8,16,16,16,16,32,32,32,32,32,32,32,32'|
 |augmentations|'jitter0.2,scale0.2,drop0.5'|
-|learning_rate|1e-4|
+|seed|41|
+|Optimizer|Adam|
+|Learning rate|1e-4|
+|Batch size|4|
+|Total epochs|100|
+|Early stop epoch|5|
+|Monitoring metric|Validation Loss|
 
 </br>
 
