@@ -42,7 +42,6 @@ CONFIG = {
     'learning_rate': 1e-4,
     'des': 'Exp',
     'loss': 'CrossEntropyLoss',
-    'lradj': 'type1',
     'swa': True,
     
     # GPU

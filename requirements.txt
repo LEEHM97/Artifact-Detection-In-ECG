@@ -13,5 +13,4 @@ tqdm==4.64.1
 wfdb==4.1.2
 neurokit2==0.2.9
 mne==1.6.1
-ipykernel
 tqdm

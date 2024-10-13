@@ -7,7 +7,6 @@ import h5py
 
 from torch.utils.data import Dataset
 from sklearn.utils import shuffle
-from sklearn.preprocessing import StandardScaler
 from config import CONFIG
 
 
