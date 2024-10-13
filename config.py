@@ -5,7 +5,7 @@ CONFIG = {
     'model_id': 'NORM04',
     'task_name': 'classification',
     'model': 'Medformer',
-    'monitor': 'CPI',
+    'monitor': 'vali_loss',
     
     # Data loader
     'data': 'K-Medicon',
