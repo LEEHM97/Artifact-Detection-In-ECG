@@ -6,7 +6,7 @@
 
 Create conda environment:
 ```
-conda create -n rtfact python=3 ipykernel
+conda create -n rtfact python=3.8 ipykernel
 ```
 
 
