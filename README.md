@@ -80,7 +80,7 @@ You can change the configuration in `config.py`. The default configuration is:
 
 </br>
 
-## Inference
+## Private test set Inference
 Change `ckpt_path` in `config.py` to match your model path
 
 ```
